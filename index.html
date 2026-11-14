@@ -144,7 +144,7 @@ const PAL_D = ['#25313a', '#2f4a4f', '#3c6a69', '#4f8f87', '#79b8a8', '#b9e0cd']
 const PUNTOS = {estaciones_tm: ['Estación de TransMilenio', '#1f5b7a'], licencias: ['Licencia urbanística', '#7a3e9d'], bic: ['Inmueble BIC', '#8a6d1d'],
   turismo: ['Alojamiento turístico (IDT)', '#b5402a'], lotes_educativos: ['Lote con uso educativo', '#2d7d46']};
 const oscuro = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
-const fmt = (v, u) => v == null || isNaN(v) ? 'sin dato' : (u === '$' ? '$' + d3.format(',.0f')(v).replace(/,/g, '.') : d3.format(',.1~f')(v).replace(/,/g, 'x').replace(/\./g, ',').replace(/x/g, '.') + (u ? ' ' + u : ''));
+const fmt = (v, u) => v == null || isNaN(v) ? 'sin dato' : (u === '$' ? '$' + d3.format(',.0f')(v).replace(/,/g, '.') : d3.format(Math.abs(v) < 10 ? ',.2~f' : ',.1~f')(v).replace(/,/g, 'x').replace(/\./g, ',').replace(/x/g, '.') + (u ? ' ' + u : ''));
 const metros = m => m >= 1000 ? `${fmt(m / 1000, '')} km`.replace(' km', ' km') : `${Math.round(m)} m`;
 
 // Variables: capa (v1 = 203 unidades; g = 418 manzanas), campo, unidad, sentido (1: más = más oscuro; -1: menos = más oscuro)
@@ -307,7 +307,7 @@ function dibujar() {
   let esc = null, cortes = [];
   if (vals.length) {
     cortes = d3.range(1, 5).map(i => d3.quantile(vals.slice().sort(d3.ascending), i / 5));
-    cortes = [...new Set(cortes.map(c => +c.toFixed(2)))];
+    cortes = [...new Set(cortes.map(c => +c.toFixed(2)))].filter(c => c > d3.min(vals));   // sin clases vacías (p. ej., muchas manzanas en 0)
     const colores = def.s === -1 ? pal.slice(1, cortes.length + 2).reverse() : pal.slice(1, cortes.length + 2);
     esc = d3.scaleThreshold().domain(cortes).range(colores);
   }
@@ -322,7 +322,7 @@ function dibujar() {
     .on('click', (e, f) => { sel = f; dibujar(); })
     .selectAll('title').data(f => [f]).join('title').text(f => `${f.properties.sector} · ${f.properties.cod}\n${def.nom}: ${excluida(f) ? 'sin población residente' : fmt(valor(f, vsel), def.u)}`);
   gPl.attr('display', planesVisibles() ? null : 'none');
-  estado = {def, esc, cortes, n: vals.length, sinDato: vals.length < capa.features.filter(f => !excluida(f)).length};
+  estado = {def, esc, cortes, n: vals.length, min: d3.min(vals), max: d3.max(vals), sinDato: vals.length < capa.features.filter(f => !excluida(f)).length};
   capasPuntos();
   ficha(def);
   grafico();
@@ -336,10 +336,10 @@ function itemsLeyenda() {
   const titulo = def.nom + (def.anual ? ` · ${anio}` : '') + (def.u && def.u !== '$' ? ` (${def.u})` : def.u === '$' ? ' ($ por m²)' : '');
   const sub = !n ? 'Esta variable todavía no tiene datos.' : def.s === -1 ? 'Más oscuro = más cerca' : 'Más oscuro = valor más alto';
   if (n) {
-    const lims = [null, ...cortes, null];
+    const lims = [estado.min, ...cortes, estado.max];
     esc.range().forEach((c, i) => {
       const a = lims[i], b = lims[i + 1];
-      it.push({t: 'sw', c, txt: a == null ? `menos de ${fmt(b, def.u)}` : b == null ? `${fmt(a, def.u)} o más` : `${fmt(a, def.u)} – ${fmt(b, def.u)}`});
+      it.push({t: 'sw', c, txt: a === b ? fmt(a, def.u) : `${fmt(a, def.u)} – ${fmt(b, def.u)}`});
     });
   }
   if (def.capa === 'g') it.push({t: 'sw', c: css.getPropertyValue('--excl').trim(), txt: 'Sin población residente (fuera del índice)'});
