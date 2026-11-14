@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Visor La Candelaria</title>
+<meta name="description" content="Mapa por manzana de las variables de la encuesta AHP sobre gentrificación en La Candelaria (Bogotá). Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya, Universidad Distrital.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Visor de la encuesta AHP: panel a la izquierda (arriba en celular), mapa vectorial a la derecha, sin mapa base externo. */
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --fg: #1e2a33; --muted: #5d6b75; --line: #d9dcd6; --accent: #1f5b7a;
+  --hi: #c2461b; --excl: #c9ccc6; --map: #eef0ec;
+  --display: "Public Sans", "Segoe UI", system-ui, sans-serif; --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #141a1f; --panel: #1b232a; --fg: #e3e8ea; --muted: #9aa8b1; --line: #2e3a43; --accent: #7fb7d4; --hi: #f08a5d; --excl: #3a454d; --map: #10161a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #141a1f; --panel: #1b232a; --fg: #e3e8ea; --muted: #9aa8b1; --line: #2e3a43; --accent: #7fb7d4; --hi: #f08a5d; --excl: #3a454d; --map: #10161a; color-scheme: dark }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; }
+.app { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; height: 100%; }
+aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding-block: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+main { position: relative; min-width: 0; background: var(--map); overflow: hidden; }
+h1 { font-family: var(--display); font-size: 1.05rem; margin: 0; line-height: 1.3; text-wrap: balance; }
+.eyebrow { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
+.autores { font-size: .74rem; color: var(--muted); line-height: 1.4; margin: 4px 0 0; }
+.pregunta { font-size: .9rem; line-height: 1.45; margin: 0; }
+label { font-size: .78rem; color: var(--muted); display: block; margin-bottom: 4px; }
+select, input[type=range] { width: 100%; }
+select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+select:focus-visible, input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs button { font: inherit; font-size: .78rem; padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--fg); cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.desc { font-size: .82rem; line-height: 1.5; margin: 0; }
+.ficha { border-top: 1px solid var(--line); padding-top: 10px; font-size: .8rem; }
+.ficha table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.ficha td { padding: 3px 0; vertical-align: top; }
+.ficha td:last-child { text-align: right; font-family: var(--mono); }
+.nota { font-size: .74rem; color: var(--muted); line-height: 1.45; margin: 0; }
+.capas { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; }
+.capas label { display: flex; gap: 6px; align-items: center; color: var(--fg); font-size: .8rem; margin: 0; }
+.boton { font: inherit; font-size: .82rem; font-weight: 600; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--panel); cursor: pointer; }
+details.fuentes { font-size: .74rem; color: var(--muted); line-height: 1.45; }
+details.fuentes summary { cursor: pointer; color: var(--fg); font-size: .78rem; }
+details.fuentes ul { padding-left: 16px; margin: 6px 0 0; }
+#mapa { width: 100%; height: 100%; display: block; cursor: grab; }
+.mz { stroke: var(--panel); stroke-width: .35; }
+.mz.sel { stroke: var(--hi); stroke-width: 1.6; }
+.sector { fill: none; stroke: var(--fg); stroke-opacity: .55; stroke-width: 1; pointer-events: none; }
+.sector-et { font-size: 9px; fill: var(--fg); fill-opacity: .7; pointer-events: none; font-family: var(--body); }
+.plan { fill: var(--hi); fill-opacity: .12; stroke: var(--hi); stroke-width: 1.2; stroke-dasharray: 4 2; }
+.radio { fill: var(--hi); fill-opacity: .08; stroke: var(--hi); stroke-width: 1.2; pointer-events: none; }
+.conector { stroke: var(--hi); stroke-width: 1.4; stroke-dasharray: 3 3; pointer-events: none; }
+circle.pt { cursor: pointer; pointer-events: all; }
+.zoombar { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: 12px; display: flex; flex-direction: column; gap: 4px; }
+.zoombar button { width: 32px; height: 32px; font: inherit; font-size: 1.1rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); cursor: pointer; }
+.escala { position: absolute; left: 12px; bottom: 12px; font-size: .72rem; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 8px; }
+.escala .barra { height: 6px; border: 1px solid var(--fg); border-top: none; }
+/* leyenda flotante (abajo a la derecha) */
+.ley-flot { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 12px; width: 270px; max-height: calc(100% - 140px); overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: .78rem; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.ley-flot h2 { font-size: .82rem; margin: 0 0 2px; line-height: 1.3; }
+.ley-flot .sub { color: var(--muted); font-size: .72rem; margin: 0 0 6px; }
+.ley-flot .fila { display: flex; align-items: center; gap: 8px; padding: 1.5px 0; font-variant-numeric: tabular-nums; }
+.ley-flot .sep { border-top: 1px solid var(--line); margin: 6px 0 4px; }
+.ley-flot svg { flex: none; }
+.ley-toggle { display: none; }
+.tip { position: absolute; pointer-events: none; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  font-size: .76rem; line-height: 1.4; max-width: 260px; box-shadow: 0 2px 8px rgba(0,0,0,.12); z-index: 5; }
+.tip b { font-weight: 600; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: auto 70vh; height: auto; }
+  aside { border-right: none; border-bottom: 1px solid var(--line); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  main { height: 70vh; }
+  .ley-flot { width: min(260px, calc(100% - 24px)); max-height: 55%; }
+  .ley-flot.cerrada .cuerpo { display: none; }
+  .ley-toggle { display: block; font: inherit; font-size: .74rem; background: none; border: none; color: var(--accent); padding: 0; cursor: pointer; margin-bottom: 4px; }
+  .escala { bottom: auto; top: 12px; }
+}
+.comp { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 10px; font-size: .82rem; line-height: 1.45; }
+.comp b { font-weight: 600; }
+.grafico { margin: 0; }
+.grafico figcaption { font-size: .78rem; color: var(--muted); margin-bottom: 4px; }
+#graf-svg { width: 100%; max-width: 340px; height: auto; display: block; }
+#graf-svg text { font-size: 9px; fill: var(--muted); font-family: var(--body); font-variant-numeric: tabular-nums; }
+#graf-svg .eje { stroke: var(--line); }
+.leyenda-g { display: flex; gap: 12px; font-size: .74rem; color: var(--muted); flex-wrap: wrap; }
+.leyenda-g span::before { content: ""; display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; background: var(--c); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div>
+      <p class="eyebrow" id="parte">Encuesta AHP · La Candelaria</p>
+      <h1 id="titulo">Visor de las variables</h1>
+      <p class="autores">Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya · Universidad Distrital Francisco José de Caldas, Ingeniería Catastral y Geodesia · 2026</p>
+    </div>
+    <p class="pregunta" id="pregunta"></p>
+    <div class="comp" id="comparacion" hidden></div>
+    <div><label>Grupo de la encuesta</label><div class="tabs" id="tabs"></div></div>
+    <div><label for="var">Variable en el mapa</label><select id="var"></select></div>
+    <div id="caja-anio" hidden><label for="anio">Año del valor de referencia: <b id="anio-txt"></b></label><input type="range" id="anio" min="2017" max="2025" step="1" value="2025"></div>
+    <figure class="grafico" id="grafico" hidden><figcaption id="graf-tit"></figcaption><svg id="graf-svg" viewBox="0 0 320 150" role="img" aria-label="Evolución del valor de referencia del suelo"></svg><div class="leyenda-g" id="graf-ley"></div></figure>
+    <div><label for="sector">Sector catastral</label><select id="sector"><option value="">Todos los sectores</option></select></div>
+    <p class="desc" id="desc"></p>
+    <div class="capas" id="capas"></div>
+    <div class="ficha" id="ficha"></div>
+    <button class="boton" id="descargar" type="button">Descargar la vista actual (PNG con leyenda y fuentes)</button>
+    <details class="fuentes"><summary>Fuentes y créditos</summary><ul id="lista-fuentes"></ul></details>
+  </aside>
+  <main>
+    <svg id="mapa" role="img" aria-label="Mapa de manzanas"></svg>
+    <div class="zoombar"><button id="zmas" aria-label="Acercar">+</button><button id="zmenos" aria-label="Alejar">−</button><button id="zini" aria-label="Ver todo">⤢</button></div>
+    <div class="escala"><span class="barra" id="barra"></span><span id="barra-txt"></span></div>
+    <div class="ley-flot" id="ley-flot"><button class="ley-toggle" id="ley-toggle" type="button" aria-expanded="true">Ocultar leyenda</button><div class="cuerpo" id="ley-cuerpo"></div></div>
+    <div class="tip" id="tip" hidden></div>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="datos_visor.js"></script>
+<script>
+const AUTORES = 'Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya';
+const INSTITUCION = 'Universidad Distrital Francisco José de Caldas · Ingeniería Catastral y Geodesia';
+const FUENTES = [
+  'Manzanas, lotes, usos y valor de referencia del suelo: © Unidad Administrativa Especial de Catastro Distrital (UAECD), Datos Abiertos Bogotá.',
+  'Población y vivienda: © DANE, Censo Nacional de Población y Vivienda 2018 (resultados por manzana).',
+  'Licencias urbanísticas, planes parciales de renovación, tratamientos urbanísticos y BIC: © Secretaría Distrital de Planeación (SDP), POT de Bogotá.',
+  'Alojamientos turísticos: © Instituto Distrital de Turismo (IDT).',
+  'Estaciones de TransMilenio y sectores catastrales: © IDECA / UAECD.',
+  'Proyecto Ministerios (P1 y P2): ANIM, Resolución 11 de 2013; digitalización propia.',
+  'Rutas a pie: © colaboradores de OpenStreetMap (licencia ODbL), calculadas con OSRM (routing.openstreetmap.de).',
+  'Elaboración propia: ' + AUTORES + ', 2026.',
+];
+const PAL = ['#f1eee3', '#d2dfc9', '#9fc3b7', '#5f9aa8', '#2f6680', '#173c55'];
+const PAL_D = ['#25313a', '#2f4a4f', '#3c6a69', '#4f8f87', '#79b8a8', '#b9e0cd'];
+const PUNTOS = {estaciones_tm: ['Estación de TransMilenio', '#1f5b7a'], licencias: ['Licencia urbanística', '#7a3e9d'], bic: ['Inmueble BIC', '#8a6d1d'],
+  turismo: ['Alojamiento turístico (IDT)', '#b5402a'], lotes_educativos: ['Lote con uso educativo', '#2d7d46']};
+const oscuro = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+const fmt = (v, u) => v == null || isNaN(v) ? 'sin dato' : (u === '$' ? '$' + d3.format(',.0f')(v).replace(/,/g, '.') : d3.format(',.1~f')(v).replace(/,/g, 'x').replace(/\./g, ',').replace(/x/g, '.') + (u ? ' ' + u : ''));
+const metros = m => m >= 1000 ? `${fmt(m / 1000, '')} km`.replace(' km', ' km') : `${Math.round(m)} m`;
+
+// Variables: capa (v1 = 203 unidades; g = 418 manzanas), campo, unidad, sentido (1: más = más oscuro; -1: menos = más oscuro)
+const VARS = {
+  val:    {capa: 'v1', nom: 'Valor del suelo (año elegido)', u: '$', anual: true, d: 'Valor de referencia del suelo por m² que el catastro (UAECD) asigna a la manzana en el año elegido. Mueva el control de año para ver cómo cambió entre 2017 y 2025.'},
+  var:    {capa: 'v1', campo: 'var', nom: 'Aumento del valor 2018–2025', u: '%', d: 'Cambio porcentual del valor de referencia del suelo entre 2018 y 2025: qué tan rápido se revalorizó la manzana en el periodo.'},
+  p2039:  {capa: 'v1', campo: 'p2039', nom: 'Jóvenes de 20 a 39 años', u: '%', d: '% de residentes de 20 a 39 años (Censo 2018): grupo asociado a la llegada de nuevos residentes.'},
+  p60:    {capa: 'v1', campo: 'p60', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018). En este índice, más proporción se lee como permanencia de la población tradicional.'},
+  psup:   {capa: 'v1', campo: 'psup', nom: 'Con educación superior', u: '%', d: '% de residentes con educación técnica, tecnológica, universitaria o de posgrado (Censo 2018).'},
+  tm1:    {capa: 'v1', campo: 'tm_cam', alt: 'tm_recta', nom: 'Cercanía a TransMilenio (caminando)', u: 'm', s: -1, d: 'Distancia caminando por calles desde el centro de la manzana hasta la estación de TransMilenio más cercana (OSRM peatonal sobre OpenStreetMap). Haga clic en una manzana y pase el cursor por las estaciones para ver las distancias.'},
+  otros:  {capa: 'v1', campo: 'otros', nom: 'Vivienda convertida en otros usos', u: '%', d: '% de predios que eran vivienda en 2018 y en 2025 figuran como comercio, servicios o uso educativo.'},
+  tur:    {capa: 'v1', campo: 'tur', nom: 'Oferta turística en la manzana', u: 'por ha', d: 'Vivienda turística y alojamientos por hectárea dentro de la propia manzana.'},
+  trat:   {capa: 'v1', campo: 'trat', nom: 'Norma (tratamiento urbanístico)', u: '', d: 'Qué tanto permite transformar la norma del POT (0 = conservación, cambios muy limitados; 1 = renovación urbana). Se muestra el tratamiento dominante al hacer clic.'},
+  lic:    {capa: 'v1', campo: 'lic', nom: 'Licencias urbanísticas 2018–2025', u: 'por ha', d: 'Licencias aprobadas entre 2018 y 2025 (obra nueva, ampliación, adecuación, reforzamiento, restauración…) por hectárea de manzana. Pase el cursor por un punto para ver la licencia y su año.'},
+  bic:    {capa: 'v1', campo: 'bic', nom: 'Patrimonio (BIC)', u: 'por ha', d: 'Bienes de interés cultural por hectárea de manzana. Los puntos muestran cada inmueble.'},
+  A1:     {capa: 'g', campo: 'A1', nom: 'Brecha de valor del suelo', u: '%', d: 'Cuánto más valdría el suelo con el mejor uso que permite la norma frente a su valor catastral actual. Esta variable está en cálculo; por eso el mapa aparece sin dato.'},
+  A2:     {capa: 'g', campo: 'A2', nom: 'Licencias recientes (300 m)', u: 'por ha', radio: 'licencias', anios: [2022, 2025], d: 'Licencias aprobadas entre 2022 y 2025 a menos de 300 m del centro de la manzana, por hectárea. Haga clic en una manzana para ver el radio de 300 m y las licencias que caen dentro.'},
+  B1:     {capa: 'g', campo: 'B1', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018): menor capacidad de enfrentar alzas de arriendo o impuestos.'},
+  B2:     {capa: 'g', campo: 'B2', nom: 'Sin educación superior', u: '%', d: '% de residentes sin educación superior (Censo 2018): aproxima menor capacidad económica.'},
+  B3:     {capa: 'g', campo: 'B3', nom: 'Viviendas tipo cuarto', u: '%', d: '% de las viviendas que son cuartos, típicas de inquilinatos y «pagadiarios» (Censo 2018): tenencia precaria.'},
+  C1:     {capa: 'g', campo: 'C1_cam', alt: 'C1_recta', nom: 'Cercanía a TransMilenio (caminando)', u: 'm', s: -1, d: 'Distancia caminando por calles a la estación de TransMilenio más cercana. Haga clic en una manzana y pase el cursor por las estaciones para ver las distancias.'},
+  C2:     {capa: 'g', campo: 'C2', nom: 'Presión turística (300 m)', u: 'por ha', radio: 'turismo', d: 'Alojamientos turísticos a menos de 300 m del centro de la manzana, por hectárea. Haga clic para ver el radio de 300 m.'},
+  C4:     {capa: 'g', campo: 'C4', nom: 'Presión universitaria (300 m)', u: '%', radio: 'lotes_educativos', d: '% del área de los lotes a menos de 300 m que tiene uso educativo (universidades e instituciones). Haga clic para ver el radio y los lotes educativos.'},
+  C5:     {capa: 'g', campo: 'C5_cam', alt: 'C5_recta', nom: 'Planes de renovación (caminando)', u: 'm', s: -1, d: 'Distancia caminando por calles al plan parcial de renovación vigente o al proyecto anunciado más cercano (San Bernardo Tercer Milenio, Triángulo de Fenicia, Proyecto Ministerios…). Las manzanas dentro de un plan valen 0.'},
+};
+// Grupos = cuadrículas de la encuesta (el enlace de cada pregunta lleva su #código)
+const GRUPOS = [
+  {id: 'p1dim', parte: 'Parte 1 · Índice de gentrificación', t: 'Comparación entre dimensiones', vars: ['var', 'p2039', 'tm1', 'lic'], q: '¿Cuál dimensión pesa más como evidencia de que la gentrificación AVANZÓ entre 2018 y 2025? Use el selector para ver una variable representativa de cada dimensión (ECO, SOC, FUN, FIS).'},
+  {id: 'eco', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión ECO · Económica', vars: ['val', 'var'], q: 'Valor del suelo 2025 (nivel: qué tan cara está hoy la manzana) frente a aumento 2018–2025 (cambio: qué tan rápido subió). Mueva el año para ver la evolución.'},
+  {id: 'soc', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión SOC · Sociodemográfica', vars: ['p2039', 'p60', 'psup'], q: '¿Qué rasgo de los residentes pesa más como evidencia de que llegaron nuevos residentes?'},
+  {id: 'fun', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión FUN · Funcional', vars: ['tm1', 'otros', 'tur'], q: 'Accesibilidad, pérdida de vivienda frente a otros usos y turismo ya instalado.'},
+  {id: 'fis', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión FIS · Físico-urbana', vars: ['trat', 'lic', 'bic'], q: 'Lo que permite la norma, la transformación ya tramitada (licencias) y el patrimonio. Licencias y BIC son dos caminos distintos del cambio físico: obra nueva o rehabilitación frente a atractivo patrimonial.'},
+  {id: 'p2dim', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Comparación entre dimensiones', vars: ['A2', 'B3', 'C1', 'C5'], q: '¿Qué dimensión pesa más como CONDICIÓN para un mayor avance (2025–2026)? Use el selector para ver una variable de INC, VUL y ATR. En gris, manzanas sin población residente (no entran al índice).'},
+  {id: 'inc', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Dimensión INC · Incentivo económico', vars: ['A2', 'A1'], q: 'Brecha de valor del suelo frente a licencias recientes en un radio de 300 m.'},
+  {id: 'vul', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Dimensión VUL · Vulnerabilidad', vars: ['B1', 'B2', 'B3'], q: '¿Qué rasgo hace más vulnerables a los residentes frente al aumento de costos?'},
+  {id: 'atr', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Dimensión ATR · Atractivo del entorno', vars: ['C1', 'C2', 'C4', 'C5'], q: 'TransMilenio y planes se miden caminando por calles; turismo y universidades, en un radio de 300 m (círculo al hacer clic).'},
+];
+// Dimensiones -> variables (para los enlaces de las preguntas entre dimensiones, p. ej. #p1dim-ECO-SOC)
+const DIMS = {
+  ECO: ['Económica', ['val', 'var']], SOC: ['Sociodemográfica', ['p2039', 'p60', 'psup']], FUN: ['Funcional', ['tm1', 'otros', 'tur']],
+  FIS: ['Físico-urbana', ['trat', 'lic', 'bic']], INC: ['Incentivo económico', ['A1', 'A2']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']],
+  ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
+};
+let D, grupo = GRUPOS[1], vsel = 'val', anio = 2025, sectorSel = '', sel = null, zk = 1, estado = {};
+const activos = {};   // capas de puntos encendidas (se recuerdan al cambiar de variable)
+const svg = d3.select('#mapa'), g = svg.append('g');
+const gMz = g.append('g'), gPl = g.append('g'), gSec = g.append('g'), gPts = g.append('g'), gSel = g.append('g');
+let proj, path;
+
+function iniciar() {
+  const todo = {type: 'FeatureCollection', features: [...D.manzanas.features, ...D.unidades_v1.features]};
+  const box = svg.node().getBoundingClientRect();
+  proj = d3.geoMercator().fitExtent([[12, 12], [Math.max(200, box.width) - 12, Math.max(200, box.height) - 12]], todo);
+  path = d3.geoPath(proj);
+  D.sectores.features.sort((a, b) => a.properties.n.localeCompare(b.properties.n)).forEach(f =>
+    d3.select('#sector').append('option').attr('value', f.properties.cod).text(f.properties.n));
+  gSec.selectAll('path').data(D.sectores.features).join('path').attr('class', 'sector').attr('d', path);
+  gSec.selectAll('text').data(D.sectores.features).join('text').attr('class', 'sector-et')
+    .attr('x', f => path.centroid(f)[0]).attr('y', f => path.centroid(f)[1]).attr('text-anchor', 'middle').text(f => f.properties.n);
+  gPl.selectAll('path').data(D.planes.features).join('path').attr('class', 'plan').attr('d', path)
+    .on('mousemove', (e, f) => tip(e, textoPlan(f))).on('mouseleave', ocultarTip);
+  const zoom = d3.zoom().scaleExtent([1, 14]).on('zoom', e => {
+    zk = e.transform.k; g.attr('transform', e.transform);
+    g.selectAll('.sector-et').attr('font-size', 9 / zk);
+    g.selectAll('circle.pt').attr('r', 2.6 / Math.sqrt(zk)).attr('stroke-width', 6 / zk);
+    barraEscala();
+  });
+  svg.call(zoom);
+  d3.select('#zmas').on('click', () => svg.transition().call(zoom.scaleBy, 1.6));
+  d3.select('#zmenos').on('click', () => svg.transition().call(zoom.scaleBy, 1 / 1.6));
+  d3.select('#zini').on('click', () => svg.transition().call(zoom.transform, d3.zoomIdentity));
+  GRUPOS.forEach(gr => d3.select('#tabs').append('button').attr('type', 'button').attr('data-id', gr.id)
+    .text(gr.t.replace('Dimensión ', '').replace('Comparación entre dimensiones', gr.parte.startsWith('Parte 1') ? 'P1 · dimensiones' : 'P2 · dimensiones'))
+    .on('click', () => { location.hash = gr.id; }));
+  d3.select('#var').on('change', e => { vsel = e.target.value; sel = null; dibujar(); });
+  d3.select('#anio').on('input', e => { anio = +e.target.value; dibujar(); });
+  d3.select('#sector').on('change', e => { sectorSel = e.target.value; dibujar(); });
+  d3.select('#descargar').on('click', descargar);
+  const lf = d3.select('#ley-flot');
+  if (matchMedia('(max-width: 760px)').matches) { lf.classed('cerrada', true); d3.select('#ley-toggle').text('Ver leyenda').attr('aria-expanded', 'false'); }
+  d3.select('#ley-toggle').on('click', function () {
+    const c = !lf.classed('cerrada'); lf.classed('cerrada', c);
+    d3.select(this).text(c ? 'Ver leyenda' : 'Ocultar leyenda').attr('aria-expanded', String(!c));
+  });
+  window.addEventListener('hashchange', () => ponerGrupo(location.hash.slice(1)));
+  ponerGrupo(location.hash.slice(1) || 'eco');
+  barraEscala();
+}
+
+// #grupo (todas las variables del grupo) o #grupo-A-B (la pregunta A frente a B; A y B son variables o dimensiones)
+function ponerGrupo(hash) {
+  const [id, a, b] = decodeURIComponent(hash || '').split('-');
+  grupo = GRUPOS.find(x => x.id === id) || GRUPOS[1];
+  let vars = grupo.vars;
+  const comp = d3.select('#comparacion').property('hidden', true);
+  const nombre = k => DIMS[k] ? `${k} · ${DIMS[k][0]}` : VARS[k] ? VARS[k].nom : null;
+  if (a && b && nombre(a) && nombre(b)) {
+    vars = [a, b].flatMap(k => DIMS[k] ? DIMS[k][1] : [k]);
+    comp.property('hidden', false).html('');
+    comp.append('div').html(`Pregunta: <b>A</b> = ${nombre(a)} &nbsp;frente a&nbsp; <b>B</b> = ${nombre(b)}`);
+    comp.append('div').attr('class', 'nota').text(DIMS[a] ? 'El selector muestra las variables de las dos dimensiones.' : 'Cambie entre A y B en el selector de variable.');
+  }
+  vsel = vars.find(k => k !== 'A1') || vars[0]; sel = null;   // A1 (brecha) aún sin datos: se abre la otra variable
+  d3.selectAll('#tabs button').attr('aria-pressed', function () { return this.dataset.id === grupo.id; });
+  d3.select('#parte').text(grupo.parte);
+  d3.select('#titulo').text(grupo.t);
+  d3.select('#pregunta').text(grupo.q);
+  const s = d3.select('#var'); s.selectAll('option').remove();
+  vars.forEach(k => s.append('option').attr('value', k).text((DIMS[a] || DIMS[b] ? Object.keys(DIMS).find(d => DIMS[d][1].includes(k)) + ' · ' : '') + VARS[k].nom));
+  s.property('value', vsel);
+  dibujar();
+}
+
+// Evolución del valor de referencia: mediana de las 203 manzanas y la manzana elegida
+function grafico() {
+  const ver = vsel === 'val' || vsel === 'var';
+  d3.select('#grafico').property('hidden', !ver);
+  if (!ver) return;
+  const anios = d3.range(2017, 2026), css = getComputedStyle(document.documentElement);
+  const med = anios.map(y => ({y, v: d3.median(D.unidades_v1.features, f => f.properties.vref ? f.properties.vref[String(y)] : undefined)})).filter(d => d.v != null);
+  const mz = sel && sel.properties.vref ? anios.map(y => ({y, v: sel.properties.vref[String(y)]})).filter(d => d.v != null) : [];
+  const W = 320, H = 150, m = {l: 44, r: 10, t: 10, b: 20};
+  const x = d3.scaleLinear().domain([2017, 2025]).range([m.l, W - m.r]);
+  const y = d3.scaleLinear().domain([0, d3.max([...med, ...mz], d => d.v) * 1.08]).nice(4).range([H - m.b, m.t]);
+  const S = d3.select('#graf-svg'); S.selectAll('*').remove();
+  S.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('class', 'eje').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y);
+  S.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('x', m.l - 4).attr('y', d => y(d) + 3).attr('text-anchor', 'end').text(d => d === 0 ? '$0' : d >= 1e6 ? `$${d3.format('.1~f')(d / 1e6).replace('.', ',')} M` : `$${d3.format(',.0f')(d / 1e3)} mil`);
+  S.append('g').selectAll('text').data([2017, 2019, 2021, 2023, 2025]).join('text').attr('x', x).attr('y', H - 5).attr('text-anchor', 'middle').text(d => d);
+  S.append('line').attr('x1', x(anio)).attr('x2', x(anio)).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', css.getPropertyValue('--muted')).attr('stroke-dasharray', '2 2');
+  const linea = d3.line().x(d => x(d.y)).y(d => y(d.v));
+  const series = [{d: med, c: css.getPropertyValue('--muted'), n: 'Mediana de las 203 manzanas'}];
+  if (mz.length) series.push({d: mz, c: css.getPropertyValue('--hi'), n: 'Manzana ' + sel.properties.cod});
+  series.forEach(s => {
+    S.append('path').attr('d', linea(s.d)).attr('fill', 'none').attr('stroke', s.c).attr('stroke-width', 2);
+    S.append('g').selectAll('circle').data(s.d).join('circle').attr('cx', d => x(d.y)).attr('cy', d => y(d.v)).attr('r', 3.5)
+      .attr('fill', s.c).attr('stroke', css.getPropertyValue('--panel')).attr('stroke-width', 1.5)
+      .append('title').text(d => `${s.n} · ${d.y}: ${fmt(d.v, '$')} por m²`);
+  });
+  d3.select('#graf-tit').text('Valor de referencia del suelo por m², 2017–2025' + (mz.length ? '' : ' (haga clic en una manzana para compararla)'));
+  const L = d3.select('#graf-ley'); L.selectAll('*').remove();
+  series.forEach(s => L.append('span').style('--c', s.c).text(s.n));
+}
+
+function valor(f, v) {
+  const p = f.properties, def = VARS[v];
+  if (def.anual) return p.vref ? (p.vref[String(anio)] ?? null) : null;
+  let x = p[def.campo];
+  if ((x == null || x === '') && def.alt) x = p[def.alt];
+  return x == null || x === '' ? null : +x;
+}
+const excluida = f => VARS[vsel].capa === 'g' && f.properties.filtro === 'EXCLUIDA_SIN_POBLACION_RESIDENTE';
+
+function dibujar() {
+  const def = VARS[vsel], capa = def.capa === 'v1' ? D.unidades_v1 : D.manzanas;
+  d3.select('#caja-anio').property('hidden', !def.anual);
+  d3.select('#anio-txt').text(anio);
+  d3.select('#desc').text(def.d);
+  const vals = capa.features.map(f => valor(f, vsel)).filter(x => x != null && !isNaN(x));
+  const pal = oscuro() ? PAL_D : PAL;
+  let esc = null, cortes = [];
+  if (vals.length) {
+    cortes = d3.range(1, 5).map(i => d3.quantile(vals.slice().sort(d3.ascending), i / 5));
+    cortes = [...new Set(cortes.map(c => +c.toFixed(2)))];
+    const colores = def.s === -1 ? pal.slice(1, cortes.length + 2).reverse() : pal.slice(1, cortes.length + 2);
+    esc = d3.scaleThreshold().domain(cortes).range(colores);
+  }
+  const enSector = f => !sectorSel || f.properties.cod.startsWith(sectorSel);
+  const css = getComputedStyle(document.documentElement);
+  gMz.selectAll('path').data(capa.features, f => f.properties.cod).join('path')
+    .attr('class', f => 'mz' + (sel && sel.properties.cod === f.properties.cod ? ' sel' : ''))
+    .attr('d', path)
+    .attr('fill', f => { const x = valor(f, vsel); if (excluida(f)) return css.getPropertyValue('--excl'); return x == null || !esc ? 'transparent' : esc(x); })
+    .attr('fill-opacity', f => enSector(f) ? 1 : 0.18)
+    .attr('stroke-dasharray', f => valor(f, vsel) == null && !excluida(f) ? '2 2' : null)
+    .on('click', (e, f) => { sel = f; dibujar(); })
+    .selectAll('title').data(f => [f]).join('title').text(f => `${f.properties.sector} · ${f.properties.cod}\n${def.nom}: ${excluida(f) ? 'sin población residente' : fmt(valor(f, vsel), def.u)}`);
+  gPl.attr('display', planesVisibles() ? null : 'none');
+  estado = {def, esc, cortes, n: vals.length, sinDato: vals.length < capa.features.filter(f => !excluida(f)).length};
+  capasPuntos();
+  ficha(def);
+  grafico();
+  leyendaFlotante();
+}
+const planesVisibles = () => vsel === 'C5' || ['atr', 'p2dim', 'inc'].includes(grupo.id);
+
+// Elementos de la leyenda: los usa la leyenda flotante y la imagen descargada
+function itemsLeyenda() {
+  const {def, esc, cortes, n, sinDato} = estado, css = getComputedStyle(document.documentElement), it = [];
+  const titulo = def.nom + (def.anual ? ` · ${anio}` : '') + (def.u && def.u !== '$' ? ` (${def.u})` : def.u === '$' ? ' ($ por m²)' : '');
+  const sub = !n ? 'Esta variable todavía no tiene datos.' : def.s === -1 ? 'Más oscuro = más cerca' : 'Más oscuro = valor más alto';
+  if (n) {
+    const lims = [null, ...cortes, null];
+    esc.range().forEach((c, i) => {
+      const a = lims[i], b = lims[i + 1];
+      it.push({t: 'sw', c, txt: a == null ? `menos de ${fmt(b, def.u)}` : b == null ? `${fmt(a, def.u)} o más` : `${fmt(a, def.u)} – ${fmt(b, def.u)}`});
+    });
+  }
+  if (def.capa === 'g') it.push({t: 'sw', c: css.getPropertyValue('--excl').trim(), txt: 'Sin población residente (fuera del índice)'});
+  if (sinDato) it.push({t: 'sindato', txt: 'Manzana sin dato'});
+  it.push({t: 'sep'});
+  if (planesVisibles()) it.push({t: 'plan', txt: 'Plan de renovación vigente o Proyecto Ministerios'});
+  Object.keys(PUNTOS).forEach(k => { if (activos[k] && estado.capasOn && estado.capasOn.includes(k)) it.push({t: 'punto', c: PUNTOS[k][1], txt: PUNTOS[k][0] + (k === 'licencias' && vsel === 'A2' ? ' (2022–2025)' : '')}); });
+  if (sel && def.radio) it.push({t: 'radio', txt: 'Radio de 300 m desde el centro de la manzana'});
+  if (sel && (vsel === 'tm1' || vsel === 'C1')) it.push({t: 'conector', txt: 'Hacia la estación más cercana (caminando)'});
+  if (sel) it.push({t: 'sel', txt: 'Manzana seleccionada'});
+  it.push({t: 'sector', txt: 'Límite de sector catastral'});
+  return {titulo, sub, items: it};
+}
+
+function icono(sel0, d, css) {
+  const s = sel0.append('svg').attr('width', 22).attr('height', 14).attr('viewBox', '0 0 22 14');
+  dibujarIcono(s, d, css, 0, 0);
+}
+function dibujarIcono(s, d, css, x, y) {
+  const hi = css.getPropertyValue('--hi').trim(), fg = css.getPropertyValue('--fg').trim(), line = css.getPropertyValue('--line').trim();
+  if (d.t === 'sw') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', d.c).attr('stroke', line);
+  else if (d.t === 'sindato') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', 'none').attr('stroke', css.getPropertyValue('--muted').trim()).attr('stroke-dasharray', '2 2');
+  else if (d.t === 'plan') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', hi).attr('fill-opacity', .12).attr('stroke', hi).attr('stroke-width', 1.4).attr('stroke-dasharray', '4 2');
+  else if (d.t === 'punto') s.append('circle').attr('cx', x + 11).attr('cy', y + 7).attr('r', 4).attr('fill', d.c).attr('stroke', css.getPropertyValue('--panel').trim()).attr('stroke-width', 1);
+  else if (d.t === 'radio') s.append('circle').attr('cx', x + 11).attr('cy', y + 7).attr('r', 6).attr('fill', hi).attr('fill-opacity', .08).attr('stroke', hi).attr('stroke-width', 1.2);
+  else if (d.t === 'conector') s.append('line').attr('x1', x + 1).attr('x2', x + 21).attr('y1', y + 7).attr('y2', y + 7).attr('stroke', hi).attr('stroke-width', 1.6).attr('stroke-dasharray', '3 3');
+  else if (d.t === 'sel') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', 'none').attr('stroke', hi).attr('stroke-width', 2);
+  else if (d.t === 'sector') s.append('line').attr('x1', x + 1).attr('x2', x + 21).attr('y1', y + 7).attr('y2', y + 7).attr('stroke', fg).attr('stroke-opacity', .55).attr('stroke-width', 1.2);
+}
+
+function leyendaFlotante() {
+  const {titulo, sub, items} = itemsLeyenda(), css = getComputedStyle(document.documentElement);
+  const C = d3.select('#ley-cuerpo'); C.selectAll('*').remove();
+  C.append('h2').text(titulo);
+  C.append('p').attr('class', 'sub').text(sub);
+  items.forEach(d => {
+    if (d.t === 'sep') { C.append('div').attr('class', 'sep'); return; }
+    const f = C.append('div').attr('class', 'fila'); icono(f, d, css); f.append('span').text(d.txt);
+  });
+}
+
+function capasPuntos() {
+  const C = d3.select('#capas'); C.selectAll('*').remove();
+  const on = [];
+  if (['tm1', 'C1'].includes(vsel) || ['fun', 'atr', 'p1dim', 'p2dim'].includes(grupo.id)) on.push('estaciones_tm');
+  if (vsel === 'lic' || vsel === 'A2') on.push('licencias');
+  if (vsel === 'bic') on.push('bic');
+  if (vsel === 'tur' || vsel === 'C2') on.push('turismo');
+  if (vsel === 'C4') on.push('lotes_educativos');
+  estado.capasOn = on;
+  on.forEach(k => { if (activos[k] === undefined) activos[k] = true; });
+  if (!on.length) { gPts.selectAll('*').remove(); return; }
+  C.append('div').attr('class', 'nota').text('Puntos en el mapa (pase el cursor por un punto para ver su distancia a la manzana seleccionada)');
+  on.forEach(k => {
+    const l = C.append('label');
+    l.append('input').attr('type', 'checkbox').property('checked', activos[k]).on('change', e => { activos[k] = e.target.checked; pintar(); leyendaFlotante(); });
+    l.append('span').style('display', 'inline-block').style('width', '10px').style('height', '10px').style('border-radius', '50%').style('background', PUNTOS[k][1]);
+    l.append('span').text(PUNTOS[k][0] + (k === 'licencias' ? (vsel === 'A2' ? ' (2022–2025)' : ' (2018–2025)') : ''));
+  });
+  function pintar() {
+    const pts = [];
+    on.forEach(k => {
+      if (!activos[k]) return;
+      let fs = D[k].features;
+      if (k === 'licencias' && vsel === 'A2') fs = fs.filter(f => f.properties.anio >= 2022);
+      fs.forEach(f => pts.push({f, k, col: PUNTOS[k][1]}));
+    });
+    gPts.selectAll('circle.pt').data(pts).join('circle').attr('class', 'pt')
+      .attr('cx', d => proj(d.f.geometry.coordinates)[0]).attr('cy', d => proj(d.f.geometry.coordinates)[1])
+      .attr('r', 2.6 / Math.sqrt(zk)).attr('fill', d => d.col).attr('fill-opacity', .9).attr('stroke', 'transparent').attr('stroke-width', 6 / zk)
+      .on('mousemove', (e, d) => tip(e, textoPunto(d))).on('mouseleave', ocultarTip);
+  }
+  pintar();
+}
+
+// Distancias para el cursor: desde el centro de la manzana seleccionada
+function textoPunto(d) {
+  const p = d.f.properties, nombre = `<b>${PUNTOS[d.k][0]}</b>` + (p.n ? `: ${p.n}` : '') + (p.anio ? ` · ${p.anio}` : '') + (p.t && d.k !== 'licencias' ? ` · ${p.t}` : '');
+  if (!sel) return nombre + '<br><span class="nota">Haga clic en una manzana para ver la distancia hasta este punto.</span>';
+  const recta = d3.geoDistance(d3.geoCentroid(sel), d.f.geometry.coordinates) * 6371000, sp = sel.properties;
+  let txt = `${nombre}<br>Desde la manzana ${sp.cod}: <b>${metros(recta)}</b> en línea recta`;
+  if (d.k === 'estaciones_tm') {
+    const est = VARS[vsel].capa === 'v1' ? sp.tm_est : sp.C1_est, cam = VARS[vsel].capa === 'v1' ? sp.tm_cam : sp.C1_cam, min = VARS[vsel].capa === 'v1' ? sp.tm_min : sp.C1_min;
+    if (p.n === est && cam != null) txt += `<br>Caminando por las calles: <b>${metros(cam)}</b> (unos ${min} min). Es la estación más cercana a pie.`;
+    else txt += '<br><span class="nota">La distancia caminando se calculó solo hasta la estación más cercana.</span>';
+  }
+  if (VARS[vsel].radio === d.k || (d.k === 'licencias' && VARS[vsel].radio === 'licencias')) txt += recta <= 300 ? '<br>Dentro del radio de 300 m.' : '<br>Fuera del radio de 300 m.';
+  return txt;
+}
+function textoPlan(f) {
+  let txt = `<b>${f.properties.n}</b><br>${f.properties.t}`;
+  if (sel && VARS[vsel].capa === 'g') {
+    const sp = sel.properties, nom = f.properties.n.startsWith('Proyecto Ministerios') ? 'Proyecto Ministerios (P1+P2)' : f.properties.n;
+    if (sp.C5_dentro && sp.C5_dentro === nom) txt += `<br>La manzana ${sp.cod} está dentro de este plan (distancia 0).`;
+    else if (sp.C5_plan === nom && sp.C5_cam != null) txt += `<br>Desde la manzana ${sp.cod}: <b>${metros(sp.C5_cam)}</b> caminando hasta el borde (${metros(sp.C5_recta)} en línea recta). Es el plan más cercano a pie.`;
+    else txt += '<br><span class="nota">La distancia caminando se calculó solo hasta el plan más cercano.</span>';
+  }
+  return txt;
+}
+function tip(e, html) {
+  const m = d3.select('main').node().getBoundingClientRect(), T = d3.select('#tip').property('hidden', false).html(html), t = T.node();
+  let x = e.clientX - m.left + 14, y = e.clientY - m.top + 14;
+  if (x + t.offsetWidth > m.width - 8) x = e.clientX - m.left - t.offsetWidth - 14;
+  if (y + t.offsetHeight > m.height - 8) y = e.clientY - m.top - t.offsetHeight - 14;
+  x = Math.max(8, Math.min(x, m.width - t.offsetWidth - 8)); y = Math.max(8, y);
+  T.style('left', x + 'px').style('top', y + 'px');
+}
+const ocultarTip = () => d3.select('#tip').property('hidden', true);
+
+function ficha(def) {
+  gSel.selectAll('*').remove();
+  const F = d3.select('#ficha'); F.selectAll('*').remove();
+  if (!sel) { F.append('p').attr('class', 'nota').text('Haga clic en una manzana para ver sus valores.'); return; }
+  const p = sel.properties;
+  F.append('p').style('margin', '0 0 6px').html(`<b>${p.sector}</b> · manzana ${p.cod}`);
+  const tb = F.append('table');
+  [...document.querySelectorAll('#var option')].map(o => o.value).forEach(k => { const v = VARS[k]; if (v.capa !== def.capa) return; const tr = tb.append('tr'); tr.append('td').text(v.nom); tr.append('td').text(excluida(sel) ? '—' : fmt(valor(sel, k), v.u)); });
+  if (def.anual && p.vref) { const tr = tb.append('tr'); tr.append('td').text('Valor 2018 → 2025'); tr.append('td').text(fmt(p.vref['2018'], '$') + ' → ' + fmt(p.vref['2025'], '$')); }
+  if (excluida(sel)) F.append('p').attr('class', 'nota').text('Manzana sin población residente: no entra al índice de gentrificabilidad.');
+  const c = path.centroid(sel);
+  if (def.radio) {
+    const ll = d3.geoCentroid(sel), circ = d3.geoCircle().center(ll).radius(300 / 6371000 * 180 / Math.PI)();
+    gSel.append('path').attr('class', 'radio').attr('d', path(circ));
+    let fs = D[def.radio].features; if (def.radio === 'licencias' && def.anios) fs = fs.filter(f => f.properties.anio >= def.anios[0] && f.properties.anio <= def.anios[1]);
+    const n = fs.filter(f => d3.geoDistance(ll, f.geometry.coordinates) * 6371000 <= 300).length;
+    const oficial = def.radio === 'licencias' ? p.A2_n : def.radio === 'turismo' ? p.C2_n : null;
+    const txt = {licencias: 'licencias 2022–2025', turismo: 'alojamientos del IDT', lotes_educativos: 'lotes con uso educativo'}[def.radio];
+    F.append('p').attr('class', 'nota').text(`Círculo: radio de 300 m (28,3 ha) desde el centro de la manzana. Puntos del mapa dentro: ${n} ${txt}.`
+      + (def.radio === 'turismo' && oficial != null ? ` El índice cuenta ${oficial} establecimientos turísticos (vivienda turística + alojamientos); el mapa solo muestra la capa de alojamientos del IDT.` : '')
+      + (def.radio === 'licencias' && oficial != null && oficial !== n ? ` El índice cuenta ${oficial} licencias porque mide sobre los lotes de cada licencia; cada punto del mapa es el centro de una licencia, por eso el conteo puede variar.` : ''));
+  }
+  if (vsel === 'tm1' || vsel === 'C1') {
+    const nom = def.capa === 'v1' ? p.tm_est : p.C1_est;
+    const est = D.estaciones_tm.features.find(f => f.properties.n === nom);
+    if (est) { const q = proj(est.geometry.coordinates); gSel.append('line').attr('class', 'conector').attr('x1', c[0]).attr('y1', c[1]).attr('x2', q[0]).attr('y2', q[1]); }
+    const min = def.capa === 'v1' ? p.tm_min : p.C1_min, recta = def.capa === 'v1' ? p.tm_recta : p.C1_recta, cam = def.capa === 'v1' ? p.tm_cam : p.C1_cam;
+    F.append('p').attr('class', 'nota').text(`Estación más cercana caminando: ${nom || 'sin dato'}: ${fmt(cam, 'm')}${min != null ? ` (unos ${min} min a pie)` : ''}; en línea recta, ${fmt(recta, 'm')}. La línea punteada solo indica hacia dónde queda; la distancia del índice es la del recorrido por las calles.`);
+  }
+  if (vsel === 'C5') F.append('p').attr('class', 'nota').text(p.C5_dentro ? `Dentro de: ${p.C5_dentro} (distancia 0).` : `Plan o proyecto más cercano caminando: ${p.C5_plan || 'sin dato'}: ${fmt(p.C5_cam, 'm')}; en línea recta, ${fmt(p.C5_recta, 'm')}.`);
+  if (vsel === 'trat' && p.trat_nom) F.append('p').attr('class', 'nota').text('Tratamiento dominante: ' + p.trat_nom);
+}
+
+// Barra de escala: metros por píxel en el centro del mapa, con el zoom actual
+function escalaMetros(px) {
+  const r = svg.node().getBoundingClientRect(), t = d3.zoomTransform(svg.node());
+  const a = proj.invert(t.invert([r.width / 2, r.height / 2])), b = proj.invert(t.invert([r.width / 2 + px, r.height / 2]));
+  return d3.geoDistance(a, b) * 6371000;
+}
+function longitudBarra(maxPx) {
+  const m = escalaMetros(maxPx), nice = [25, 50, 100, 200, 250, 500, 1000, 2000].filter(v => v <= m).pop() || 25;
+  return {px: maxPx * nice / m, m: nice};
+}
+function barraEscala() {
+  if (!proj) return;
+  const b = longitudBarra(110);
+  d3.select('#barra').style('width', b.px + 'px');
+  d3.select('#barra-txt').text(metros(b.m));
+}
+
+// Descarga de la vista actual: mapa + leyenda + barra de escala + norte + fuentes, como PNG
+function descargar() {
+  const css = getComputedStyle(document.documentElement), r = svg.node().getBoundingClientRect();
+  // el mapa se exporta a tamaño fijo (misma vista y proporción de la pantalla); la leyenda va en una columna a la derecha
+  const W0 = Math.round(r.width), H0 = Math.round(r.height), sc = W0 >= H0 ? 1100 / W0 : 860 / H0;
+  const W = Math.round(W0 * sc), H = Math.round(H0 * sc), LW = 300, FW = W + LW + 24;
+  const bg = css.getPropertyValue('--map').trim(), panel = css.getPropertyValue('--panel').trim(), fg = css.getPropertyValue('--fg').trim(), muted = css.getPropertyValue('--muted').trim(), line = css.getPropertyValue('--line').trim();
+  const NS = 'http://www.w3.org/2000/svg';
+  const out = d3.create('svg').attr('xmlns', NS).attr('font-family', 'Segoe UI, Arial, sans-serif');
+  // copia del mapa con los estilos calculados en línea (las clases no viajan a la imagen)
+  const copia = svg.node().cloneNode(true), orig = svg.node().querySelectorAll('*'), dup = copia.querySelectorAll('*');
+  const PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'opacity', 'font-size', 'display'];
+  orig.forEach((el, i) => { const cs = getComputedStyle(el); PROPS.forEach(pr => dup[i].style.setProperty(pr, cs.getPropertyValue(pr))); dup[i].removeAttribute('class'); });
+  dup.forEach(el => { if (el.tagName === 'title') el.remove(); });
+  // los rótulos de sector no deben crecer con la ampliación del mapa
+  orig.forEach((el, i) => { if (el.tagName === 'text') dup[i].style.setProperty('font-size', (parseFloat(getComputedStyle(el).fontSize) * 1.3 / sc) + 'px'); });
+  const top = 64;
+  const titulo = `${grupo.parte} · ${grupo.t}`;
+  const {titulo: lt, sub, items} = itemsLeyenda();
+  // fuentes (con ajuste de línea)
+  const envolver = (t, n) => { const w = t.split(' '), ls = []; let l = ''; w.forEach(p => { if ((l + ' ' + p).trim().length > n) { ls.push(l.trim()); l = p; } else l += ' ' + p; }); ls.push(l.trim()); return ls; };
+  const lineasF = FUENTES.flatMap(t => envolver('• ' + t, Math.floor(FW / 6.4)));
+  const pie = 30 + lineasF.length * 14 + 10;
+  const filas = items.filter(d => d.t !== 'sep'), LH = 46 + filas.length * 18 + (items.some(d => d.t === 'sep') ? 6 : 0);
+  const TH = top + Math.max(H, LH + 90) + pie;
+  out.attr('width', FW).attr('height', TH).attr('viewBox', `0 0 ${FW} ${TH}`);
+  out.append('rect').attr('width', FW).attr('height', TH).attr('fill', panel);
+  out.append('text').attr('x', 16).attr('y', 26).attr('font-size', 16).attr('font-weight', 700).attr('fill', fg).text(titulo);
+  out.append('text').attr('x', 16).attr('y', 46).attr('font-size', 12).attr('fill', muted)
+    .text(`${VARS[vsel].nom}${VARS[vsel].anual ? ' · ' + anio : ''}${sectorSel ? ' · Sector: ' + d3.select('#sector option:checked').text() : ''}${sel ? ' · Manzana ' + sel.properties.cod : ''} · La Candelaria y sectores vecinos, Bogotá`);
+  const mapa = out.append('g').attr('transform', `translate(0,${top})`);
+  mapa.append('rect').attr('width', W).attr('height', H).attr('fill', bg);
+  copia.removeAttribute('id'); copia.setAttribute('width', W); copia.setAttribute('height', H); copia.setAttribute('viewBox', `0 0 ${W0} ${H0}`); copia.style.removeProperty('cursor');
+  mapa.node().appendChild(copia);
+  mapa.append('rect').attr('width', W).attr('height', H).attr('fill', 'none').attr('stroke', line);
+  // leyenda (columna a la derecha del mapa)
+  const lg = out.append('g').attr('transform', `translate(${W + 12},${top})`);
+  lg.append('rect').attr('width', LW).attr('height', LH).attr('rx', 6).attr('fill', panel).attr('stroke', line);
+  lg.append('text').attr('x', 10).attr('y', 18).attr('font-size', 12).attr('font-weight', 700).attr('fill', fg).text(lt.length > 46 ? lt.slice(0, 45) + '…' : lt);
+  lg.append('text').attr('x', 10).attr('y', 34).attr('font-size', 10).attr('fill', muted).text(sub);
+  let yy = 44;
+  items.forEach(d => {
+    if (d.t === 'sep') { lg.append('line').attr('x1', 10).attr('x2', LW - 10).attr('y1', yy + 2).attr('y2', yy + 2).attr('stroke', line); yy += 6; return; }
+    dibujarIcono(lg, d, css, 10, yy);
+    lg.append('text').attr('x', 38).attr('y', yy + 11).attr('font-size', 10.5).attr('fill', fg).text(d.txt);
+    yy += 18;
+  });
+  // barra de escala y norte
+  const b0 = longitudBarra(120 / sc), b = {px: b0.px * sc, m: b0.m}, sb = mapa.append('g').attr('transform', `translate(16,${H - 30})`);
+  sb.append('rect').attr('x', -6).attr('y', -14).attr('width', b.px + 70).attr('height', 26).attr('rx', 4).attr('fill', panel).attr('stroke', line);
+  sb.append('path').attr('d', `M0,0 v6 h${b.px} v-6`).attr('fill', 'none').attr('stroke', fg).attr('stroke-width', 1.4);
+  sb.append('text').attr('x', b.px + 8).attr('y', 7).attr('font-size', 11).attr('fill', fg).text(metros(b.m));
+  const nt = mapa.append('g').attr('transform', `translate(28,26)`);
+  nt.append('path').attr('d', 'M0,-14 L7,8 L0,3 L-7,8 Z').attr('fill', fg);
+  nt.append('text').attr('y', 22).attr('text-anchor', 'middle').attr('font-size', 11).attr('font-weight', 700).attr('fill', fg).text('N');
+  // pie: autores y fuentes
+  const pg = out.append('g').attr('transform', `translate(16,${top + Math.max(H, LH + 90) + 20})`);
+  pg.append('text').attr('font-size', 11).attr('font-weight', 700).attr('fill', fg).text(`${AUTORES} · ${INSTITUCION} · Trabajo de grado, 2026`);
+  lineasF.forEach((t, i) => pg.append('text').attr('y', 18 + i * 14).attr('font-size', 10).attr('fill', muted).text(t));
+  // a PNG (2x)
+  const txt = new XMLSerializer().serializeToString(out.node());
+  const img = new Image();
+  img.onload = () => {
+    const cv = document.createElement('canvas'); cv.width = FW * 2; cv.height = TH * 2;
+    const cx = cv.getContext('2d'); cx.scale(2, 2); cx.drawImage(img, 0, 0);
+    cv.toBlob(bl => {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(bl);
+      a.download = `visor_candelaria_${grupo.id}_${vsel}${VARS[vsel].anual ? '_' + anio : ''}.png`;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, 'image/png');
+  };
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(txt);
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => D && dibujar());
+
+FUENTES.forEach(t => d3.select('#lista-fuentes').append('li').text(t));
+if (window.DATOS) { D = window.DATOS; iniciar(); }
+else d3.select('#titulo').text('No se pudieron cargar los datos del visor');
+</script>
+</body>
+</html>
