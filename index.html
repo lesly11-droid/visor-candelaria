@@ -135,6 +135,7 @@ const PUNTOS = {estaciones_tm: ['Estación de TransMilenio', '#142f4a'], licenci
 const fmt = (v, u) => v == null || isNaN(v) ? 'sin dato' : (u === '$' ? '$' + d3.format(',.0f')(v).replace(/,/g, '.')
   : d3.format(Math.abs(v) < 10 ? ',.2~f' : ',.1~f')(v).replace(/,/g, 'x').replace(/\./g, ',').replace(/x/g, '.') + (u ? ' ' + u : ''));
 const metros = m => m >= 1000 ? fmt(m / 1000, 'km') : `${Math.round(m)} m`;
+const coord = f => f.geometry.type === 'Point' ? f.geometry.coordinates : d3.geoCentroid(f);   // los lotes educativos son polígonos
 
 // Variables: capa (v1 = 203 unidades de la Parte 1; g = 418 manzanas de la Parte 2), campo, unidad, sentido (-1: menos = más oscuro)
 const VARS = {
@@ -342,7 +343,7 @@ function leyenda(p) {
   const lims = [E.min, ...E.cortes, E.max];
   E.esc.range().forEach((c, i) => fila(L0, 'sw', c, lims[i] === lims[i + 1] ? fmt(lims[i], def.u) : `${fmt(lims[i], def.u)} – ${fmt(lims[i + 1], def.u)}`));
   if (def.capa === 'g') fila(L0, 'sw', '#cfd2cc', 'Sin población residente (fuera del índice)');
-  if (def.pts && p.puntosOn) fila(L0, 'punto', PUNTOS[def.pts][1], PUNTOS[def.pts][0] + (def.anios ? ` (${def.anios[0]}–${def.anios[1]})` : ''));
+  if (def.pts && p.puntosOn) fila(L0, def.pts === 'lotes_educativos' ? 'lote' : 'punto', PUNTOS[def.pts][1], PUNTOS[def.pts][0] + (def.anios ? ` (${def.anios[0]}–${def.anios[1]})` : ''));
   if (def.planes) fila(L0, 'plan', '#9e4a1f', 'Plan parcial vigente o Proyecto Ministerios');
   if (def.radio) fila(L0, 'radio', '#d1352b', 'Radio de 300 m (al elegir una manzana)');
   if (def.pts === 'estaciones_tm') fila(L0, 'linea', '#d1352b', 'Hacia la estación más cercana a pie');
@@ -351,6 +352,7 @@ function leyenda(p) {
 function fila(L0, t, c, txt) {
   const f = L0.append('div').attr('class', 'fila'), s = f.append('svg').attr('width', 24).attr('height', 14).attr('viewBox', '0 0 24 14');
   if (t === 'sw') s.append('rect').attr('x', 1).attr('y', 1).attr('width', 22).attr('height', 12).attr('fill', c).attr('stroke', '#d9dcd6');
+  else if (t === 'lote') s.append('rect').attr('x', 3).attr('y', 2).attr('width', 18).attr('height', 10).attr('fill', c).attr('fill-opacity', .45).attr('stroke', c).attr('stroke-width', 1.5);
   else if (t === 'punto') s.append('circle').attr('cx', 12).attr('cy', 7).attr('r', 4.5).attr('fill', c).attr('stroke', '#fff');
   else if (t === 'plan') s.append('rect').attr('x', 1).attr('y', 1).attr('width', 22).attr('height', 12).attr('fill', c).attr('fill-opacity', .15).attr('stroke', c).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 2');
   else if (t === 'radio') s.append('circle').attr('cx', 12).attr('cy', 7).attr('r', 6).attr('fill', c).attr('fill-opacity', .1).attr('stroke', c).attr('stroke-width', 1.5);
@@ -370,9 +372,10 @@ function puntos(p) {
   let fs = D[k].features;
   if (def.anios) fs = fs.filter(f => f.properties.anio >= def.anios[0] && f.properties.anio <= def.anios[1]);
   fs.forEach(f => {
-    const [x, y] = f.geometry.coordinates;
-    L.circleMarker([y, x], {radius: k === 'bic' ? 3 : 4.5, color: '#fff', weight: 1, fillColor: col, fillOpacity: .95})
-      .bindTooltip(() => textoPunto(f, k, p), {className: 'tt', direction: 'top'}).addTo(p.capaPts);
+    const capa = f.geometry.type === 'Point'
+      ? L.circleMarker([f.geometry.coordinates[1], f.geometry.coordinates[0]], {radius: k === 'bic' ? 3 : 4.5, color: '#fff', weight: 1, fillColor: col, fillOpacity: .95})
+      : L.geoJSON(f, {style: {color: col, weight: 1.5, fillColor: col, fillOpacity: .45}});
+    capa.bindTooltip(() => textoPunto(f, k, p), {className: 'tt', direction: 'top', sticky: f.geometry.type !== 'Point'}).addTo(p.capaPts);
   });
 }
 function planes(p) {
@@ -401,7 +404,7 @@ function textoPunto(f, k, p) {
   const pr = f.properties, def = VARS[p.v];
   let t = `<b>${PUNTOS[k][0]}</b>` + (pr.n ? `: ${pr.n}` : '') + (pr.anio ? ` · ${pr.anio}` : '') + (pr.t && k !== 'licencias' ? ` · ${pr.t}` : '');
   if (!sel) return t + '<br><span style="color:#5d6b75">Elija una manzana para ver la distancia hasta aquí.</span>';
-  const sp = sel.properties, recta = d3.geoDistance(d3.geoCentroid(sel), f.geometry.coordinates) * 6371000;
+  const sp = sel.properties, recta = d3.geoDistance(d3.geoCentroid(sel), coord(f)) * 6371000;
   t += `<br>Desde la manzana ${sp.cod}: <b>${metros(recta)}</b> en línea recta`;
   if (k === 'estaciones_tm') {
     const est = def.capa === 'v1' ? sp.tm_est : sp.C1_est, cam = def.capa === 'v1' ? sp.tm_cam : sp.C1_cam, min = def.capa === 'v1' ? sp.tm_min : sp.C1_min;
@@ -442,7 +445,7 @@ function ficha() {
     const def = VARS[v];
     if (def.radio) {
       let fs = D[def.radio].features; if (def.anios) fs = fs.filter(f => f.properties.anio >= def.anios[0] && f.properties.anio <= def.anios[1]);
-      const n = fs.filter(f => d3.geoDistance(c, f.geometry.coordinates) * 6371000 <= 300).length;
+      const n = fs.filter(f => d3.geoDistance(c, coord(f)) * 6371000 <= 300).length;
       const txt = {licencias: 'licencias 2022–2025', turismo: 'alojamientos del IDT', lotes_educativos: 'lotes con uso educativo'}[def.radio];
       der.append('p').html(`<b>${def.nom}:</b> en el círculo de 300 m (28,3 ha) hay ${n} ${txt}.` +
         (def.radio === 'turismo' && sp.C2_n != null ? ` El índice cuenta ${sp.C2_n} establecimientos (vivienda turística + alojamientos); el mapa muestra solo los alojamientos del IDT.` : '') +
