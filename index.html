@@ -2,581 +2,508 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Visor La Candelaria</title>
-<meta name="description" content="Mapa por manzana de las variables de la encuesta AHP sobre gentrificación en La Candelaria (Bogotá). Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya, Universidad Distrital.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<meta name="description" content="Mapas por manzana de las variables de la encuesta AHP sobre gentrificación en La Candelaria (Bogotá). Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya, Universidad Distrital.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&display=swap">
 <style>
-/* Visor de la encuesta AHP: panel a la izquierda (arriba en celular), mapa vectorial a la derecha, sin mapa base externo. */
+/* Visor v2 (2026-11-15): un mapa por criterio, lado a lado y sincronizados, sobre un mapa base de calles.
+   El enlace de cada pregunta de la encuesta (#grupo-A-B) abre solo los dos criterios que se comparan. */
 :root {
-  --bg: #f6f5f1; --panel: #ffffff; --fg: #1e2a33; --muted: #5d6b75; --line: #d9dcd6; --accent: #1f5b7a;
-  --hi: #c2461b; --excl: #c9ccc6; --map: #eef0ec;
-  --display: "Public Sans", "Segoe UI", system-ui, sans-serif; --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --bg: #f4f3ef; --panel: #ffffff; --fg: #1e2a33; --muted: #5d6b75; --line: #d9dcd6; --hi: #d1352b; --excl: #cfd2cc;
+  --p1: #1f5b7a; --p2: #9e4a1f; --ix: var(--p1);
+  --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #141a1f; --panel: #1b232a; --fg: #e3e8ea; --muted: #9aa8b1; --line: #2e3a43; --accent: #7fb7d4; --hi: #f08a5d; --excl: #3a454d; --map: #10161a; color-scheme: dark } }
-:root[data-theme="dark"] {
-  --bg: #141a1f; --panel: #1b232a; --fg: #e3e8ea; --muted: #9aa8b1; --line: #2e3a43; --accent: #7fb7d4; --hi: #f08a5d; --excl: #3a454d; --map: #10161a; color-scheme: dark }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; }
-.app { display: grid; grid-template-columns: minmax(280px, 360px) 1fr; height: 100%; }
-aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding-block: 16px;
-  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: 16px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-main { position: relative; min-width: 0; background: var(--map); overflow: hidden; }
-h1 { font-family: var(--display); font-size: 1.05rem; margin: 0; line-height: 1.3; text-wrap: balance; }
-.eyebrow { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
-.autores { font-size: .74rem; color: var(--muted); line-height: 1.4; margin: 4px 0 0; }
-.pregunta { font-size: .9rem; line-height: 1.45; margin: 0; }
-label { font-size: .78rem; color: var(--muted); display: block; margin-bottom: 4px; }
-select, input[type=range] { width: 100%; }
-select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
-select:focus-visible, input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-.tabs button { font: inherit; font-size: .78rem; padding: 5px 9px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--fg); cursor: pointer; }
-.tabs button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
-.desc { font-size: .82rem; line-height: 1.5; margin: 0; }
-.ficha { border-top: 1px solid var(--line); padding-top: 10px; font-size: .8rem; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; }
+body[data-parte="G"] { --ix: var(--p2); }
+#captura { background: var(--bg); }
+/* encabezado */
+.cab { background: var(--panel); border-bottom: 4px solid var(--ix); padding: 14px clamp(16px, 3vw, 32px) 12px; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; }
+.cab-izq { flex: 1 1 520px; min-width: 0; }
+.eyebrow { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.indice { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.chip { background: var(--ix); color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .06em; padding: 4px 9px; border-radius: 4px; }
+h1 { font-size: clamp(1.15rem, 2.2vw, 1.5rem); margin: 0; line-height: 1.2; }
+.ambito { font-size: .82rem; color: var(--muted); }
+.dim { font-size: 1rem; font-weight: 600; margin: 8px 0 2px; color: var(--ix); }
+.pregunta { margin: 0; font-size: .92rem; line-height: 1.45; max-width: 90ch; }
+.pregunta b { font-weight: 700; }
+.cab-der { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.cab-der label { display: flex; flex-direction: column; gap: 3px; font-size: .72rem; color: var(--muted); }
+select { font: inherit; font-size: .84rem; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); max-width: 260px; }
+.boton { font: inherit; font-size: .84rem; font-weight: 600; padding: 7px 12px; border-radius: 6px; border: 1px solid var(--ix); background: var(--ix); color: #fff; cursor: pointer; }
+.boton.sec { background: transparent; color: var(--ix); }
+select:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--ix); outline-offset: 2px; }
+/* paneles de mapa */
+.cuadricula { display: grid; gap: 12px; padding: 12px clamp(12px, 2vw, 24px); grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.panel-cab { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px 8px; border-bottom: 1px solid var(--line); }
+.rotulo { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--ix); color: #fff; font-weight: 700; font-size: 1rem; display: grid; place-items: center; }
+.panel-tit { font-weight: 700; font-size: .98rem; line-height: 1.25; }
+.panel-sub { font-size: .76rem; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+.tabs { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.tabs button { font: inherit; font-size: .74rem; padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--fg); cursor: pointer; }
+.tabs button[aria-pressed="true"] { background: var(--ix); border-color: var(--ix); color: #fff; }
+.mapa { position: relative; height: var(--alto, 60vh); min-height: 300px; background: #e9eef1; }
+.mapa .sin-datos { position: absolute; inset: 0; display: grid; place-items: center; z-index: 500; background: rgba(255,255,255,.72); font-size: .9rem; text-align: center; padding: 20px; pointer-events: none; }
+.norte { position: absolute; left: 10px; bottom: 26px; z-index: 450; width: 28px; text-align: center; font-weight: 700; font-size: .74rem; line-height: 1; color: var(--fg); pointer-events: none; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+.norte::before { content: ""; display: block; margin: 0 auto 1px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 16px solid var(--fg); }
+.anio { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: .8rem; }
+.anio input { flex: 1; }
+.leyenda { padding: 10px 12px; border-top: 1px solid var(--line); font-size: .78rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; }
+.leyenda .tit { grid-column: 1 / -1; font-weight: 600; font-size: .8rem; }
+.leyenda .nota { grid-column: 1 / -1; color: var(--muted); font-size: .72rem; }
+.leyenda .fila { display: flex; align-items: center; gap: 7px; font-variant-numeric: tabular-nums; min-width: 0; }
+.leyenda .fila span:last-child { overflow-wrap: anywhere; }
+.leyenda svg { flex: none; }
+.capas { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 6px 12px 10px; font-size: .76rem; }
+.capas label { display: flex; align-items: center; gap: 5px; }
+/* ficha de la manzana */
+.ficha { margin: 0 clamp(12px, 2vw, 24px) 12px; background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--hi); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 8px 24px; font-size: .84rem; }
+.ficha[hidden] { display: none; }
+.ficha h2 { grid-column: 1 / -1; margin: 0; font-size: .95rem; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.ficha h2 button { font: inherit; font-size: .76rem; background: none; border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; color: var(--muted); }
 .ficha table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.ficha td { padding: 3px 0; vertical-align: top; }
-.ficha td:last-child { text-align: right; font-family: var(--mono); }
-.nota { font-size: .74rem; color: var(--muted); line-height: 1.45; margin: 0; }
-.capas { display: flex; flex-direction: column; gap: 4px; font-size: .8rem; }
-.capas label { display: flex; gap: 6px; align-items: center; color: var(--fg); font-size: .8rem; margin: 0; }
-.boton { font: inherit; font-size: .82rem; font-weight: 600; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--panel); cursor: pointer; }
-details.fuentes { font-size: .74rem; color: var(--muted); line-height: 1.45; }
-details.fuentes summary { cursor: pointer; color: var(--fg); font-size: .78rem; }
-details.fuentes ul { padding-left: 16px; margin: 6px 0 0; }
-#mapa { width: 100%; height: 100%; display: block; cursor: grab; }
-.mz { stroke: var(--panel); stroke-width: .35; }
-.mz.sel { stroke: var(--hi); stroke-width: 1.6; }
-.sector { fill: none; stroke: var(--fg); stroke-opacity: .55; stroke-width: 1; pointer-events: none; }
-.sector-et { font-size: 9px; fill: var(--fg); fill-opacity: .7; pointer-events: none; font-family: var(--body); }
-.plan { fill: var(--hi); fill-opacity: .12; stroke: var(--hi); stroke-width: 1.2; stroke-dasharray: 4 2; }
-.radio { fill: var(--hi); fill-opacity: .08; stroke: var(--hi); stroke-width: 1.2; pointer-events: none; }
-.conector { stroke: var(--hi); stroke-width: 1.4; stroke-dasharray: 3 3; pointer-events: none; }
-circle.pt { cursor: pointer; pointer-events: all; }
-.zoombar { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); top: 12px; display: flex; flex-direction: column; gap: 4px; }
-.zoombar button { width: 32px; height: 32px; font: inherit; font-size: 1.1rem; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); cursor: pointer; }
-.escala { position: absolute; left: 12px; bottom: 12px; font-size: .72rem; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 8px; }
-.escala .barra { height: 6px; border: 1px solid var(--fg); border-top: none; }
-/* leyenda flotante (abajo a la derecha) */
-.ley-flot { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: 12px; width: 270px; max-height: calc(100% - 140px); overflow-y: auto;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: .78rem; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
-.ley-flot h2 { font-size: .82rem; margin: 0 0 2px; line-height: 1.3; }
-.ley-flot .sub { color: var(--muted); font-size: .72rem; margin: 0 0 6px; }
-.ley-flot .fila { display: flex; align-items: center; gap: 8px; padding: 1.5px 0; font-variant-numeric: tabular-nums; }
-.ley-flot .sep { border-top: 1px solid var(--line); margin: 6px 0 4px; }
-.ley-flot svg { flex: none; }
-.ley-toggle { display: none; }
-.tip { position: absolute; pointer-events: none; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
-  font-size: .76rem; line-height: 1.4; max-width: 260px; box-shadow: 0 2px 8px rgba(0,0,0,.12); z-index: 5; }
-.tip b { font-weight: 600; }
-@media (max-width: 760px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: auto 70vh; height: auto; }
-  aside { border-right: none; border-bottom: 1px solid var(--line); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  main { height: 70vh; }
-  .ley-flot { width: min(260px, calc(100% - 24px)); max-height: 55%; }
-  .ley-flot.cerrada .cuerpo { display: none; }
-  .ley-toggle { display: block; font: inherit; font-size: .74rem; background: none; border: none; color: var(--accent); padding: 0; cursor: pointer; margin-bottom: 4px; }
-  .escala { bottom: auto; top: 12px; }
+.ficha td { padding: 4px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ficha td:last-child { text-align: right; font-weight: 600; white-space: nowrap; padding-left: 10px; }
+.ficha .notas p { margin: 0 0 6px; color: var(--fg); line-height: 1.45; }
+.ficha .notas p.m { color: var(--muted); font-size: .76rem; }
+.ayuda { margin: 0 clamp(12px, 2vw, 24px) 12px; font-size: .8rem; color: var(--muted); }
+footer { padding: 12px clamp(16px, 3vw, 32px) 24px; font-size: .74rem; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); background: var(--panel); }
+footer b { color: var(--fg); }
+footer ul { margin: 4px 0 0; padding-left: 18px; }
+/* leaflet */
+.leaflet-container { font-family: var(--body); font-size: 12px; }
+.leaflet-tooltip.tt { font-size: .78rem; line-height: 1.4; max-width: 260px; white-space: normal; border-color: var(--line); box-shadow: 0 2px 8px rgba(0,0,0,.14); }
+.leaflet-tooltip.tt b { font-weight: 700; }
+.leaflet-control-attribution { font-size: 9px; }
+.leaflet-tile-pane { filter: grayscale(1) brightness(1.07) contrast(.92); }
+@media (max-width: 900px) {
+  .cuadricula { grid-template-columns: 1fr; }
+  .mapa { height: 52vh; }
+  .ficha { grid-template-columns: 1fr; }
+  .leyenda { grid-template-columns: 1fr; }
 }
-.comp { border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 6px; padding: 8px 10px; font-size: .82rem; line-height: 1.45; }
-.comp b { font-weight: 600; }
-.grafico { margin: 0; }
-.grafico figcaption { font-size: .78rem; color: var(--muted); margin-bottom: 4px; }
-#graf-svg { width: 100%; max-width: 340px; height: auto; display: block; }
-#graf-svg text { font-size: 9px; fill: var(--muted); font-family: var(--body); font-variant-numeric: tabular-nums; }
-#graf-svg .eje { stroke: var(--line); }
-.leyenda-g { display: flex; gap: 12px; font-size: .74rem; color: var(--muted); flex-wrap: wrap; }
-.leyenda-g span::before { content: ""; display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 5px; background: var(--c); }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="app">
-  <aside>
-    <div>
-      <p class="eyebrow" id="parte">Encuesta AHP · La Candelaria</p>
-      <h1 id="titulo">Visor de las variables</h1>
-      <p class="autores">Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya · Universidad Distrital Francisco José de Caldas, Ingeniería Catastral y Geodesia · 2026</p>
-    </div>
+<div id="captura">
+<header class="cab">
+  <div class="cab-izq">
+    <p class="eyebrow">Encuesta a expertos · AHP · La Candelaria, Bogotá</p>
+    <div class="indice"><span class="chip" id="chip">PARTE 1</span><h1 id="h-indice">Índice de gentrificación</h1><span class="ambito" id="ambito"></span></div>
+    <div class="dim" id="h-dim"></div>
     <p class="pregunta" id="pregunta"></p>
-    <div class="comp" id="comparacion" hidden></div>
-    <div><label>Grupo de la encuesta</label><div class="tabs" id="tabs"></div></div>
-    <div><label for="var">Variable en el mapa</label><select id="var"></select></div>
-    <div id="caja-anio" hidden><label for="anio">Año del valor de referencia: <b id="anio-txt"></b></label><input type="range" id="anio" min="2017" max="2025" step="1" value="2025"></div>
-    <figure class="grafico" id="grafico" hidden><figcaption id="graf-tit"></figcaption><svg id="graf-svg" viewBox="0 0 320 150" role="img" aria-label="Evolución del valor de referencia del suelo"></svg><div class="leyenda-g" id="graf-ley"></div></figure>
-    <div><label for="sector">Sector catastral</label><select id="sector"><option value="">Todos los sectores</option></select></div>
-    <p class="desc" id="desc"></p>
-    <div class="capas" id="capas"></div>
-    <div class="ficha" id="ficha"></div>
-    <button class="boton" id="descargar" type="button">Descargar la vista actual (PNG con leyenda y fuentes)</button>
-    <details class="fuentes"><summary>Fuentes y créditos</summary><ul id="lista-fuentes"></ul></details>
-  </aside>
-  <main>
-    <svg id="mapa" role="img" aria-label="Mapa de manzanas"></svg>
-    <div class="zoombar"><button id="zmas" aria-label="Acercar">+</button><button id="zmenos" aria-label="Alejar">−</button><button id="zini" aria-label="Ver todo">⤢</button></div>
-    <div class="escala"><span class="barra" id="barra"></span><span id="barra-txt"></span></div>
-    <div class="ley-flot" id="ley-flot"><button class="ley-toggle" id="ley-toggle" type="button" aria-expanded="true">Ocultar leyenda</button><div class="cuerpo" id="ley-cuerpo"></div></div>
-    <div class="tip" id="tip" hidden></div>
-  </main>
+  </div>
+  <div class="cab-der no-print">
+    <label>Ver otro grupo<select id="nav"></select></label>
+    <label>Sector catastral<select id="sector"><option value="">Todos</option></select></label>
+    <button class="boton" id="descargar" type="button">Descargar PNG</button>
+  </div>
+</header>
+<div class="cuadricula" id="paneles"></div>
+<section class="ficha" id="ficha" hidden></section>
 </div>
+<p class="ayuda no-print">Haga clic en una manzana para ver sus valores en todos los mapas. Pase el cursor por un punto para ver su distancia a la manzana elegida. Los mapas se mueven juntos.</p>
+<footer>
+  <b>Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya</b> · Universidad Distrital Francisco José de Caldas, Ingeniería Catastral y Geodesia · Trabajo de grado «Medición espacial de la gentrificación mediante AHP: La Candelaria 2018–2025», 2026.
+  <ul id="fuentes"></ul>
+</footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="datos_visor.js"></script>
 <script>
 const AUTORES = 'Lesly Melissa Patiño Mogollón y Danny Alejandro Torres Montoya';
-const INSTITUCION = 'Universidad Distrital Francisco José de Caldas · Ingeniería Catastral y Geodesia';
 const FUENTES = [
-  'Manzanas, lotes, usos y valor de referencia del suelo: © Unidad Administrativa Especial de Catastro Distrital (UAECD), Datos Abiertos Bogotá.',
-  'Población y vivienda: © DANE, Censo Nacional de Población y Vivienda 2018 (resultados por manzana).',
-  'Licencias urbanísticas, planes parciales de renovación, tratamientos urbanísticos y BIC: © Secretaría Distrital de Planeación (SDP), POT de Bogotá.',
-  'Alojamientos turísticos: © Instituto Distrital de Turismo (IDT).',
-  'Estaciones de TransMilenio y sectores catastrales: © IDECA / UAECD.',
+  'Manzanas, lotes, usos y valor de referencia del suelo: © UAECD (Catastro Distrital), Datos Abiertos Bogotá.',
+  'Población y vivienda: © DANE, Censo Nacional de Población y Vivienda 2018, resultados por manzana.',
+  'Licencias urbanísticas, planes parciales de renovación, tratamientos urbanísticos y BIC: © Secretaría Distrital de Planeación (SDP).',
+  'Alojamientos turísticos: © Instituto Distrital de Turismo (IDT). Estaciones de TransMilenio y sectores catastrales: © IDECA / UAECD.',
   'Proyecto Ministerios (P1 y P2): ANIM, Resolución 11 de 2013; digitalización propia.',
-  'Rutas a pie: © colaboradores de OpenStreetMap (licencia ODbL), calculadas con OSRM (routing.openstreetmap.de).',
-  'Elaboración propia: ' + AUTORES + ', 2026.',
+  'Mapa base y rutas a pie: © colaboradores de OpenStreetMap (ODbL); rutas calculadas con OSRM.',
+  'Elaboración propia, 2026.',
 ];
-const PAL = ['#f1eee3', '#d2dfc9', '#9fc3b7', '#5f9aa8', '#2f6680', '#173c55'];
-const PAL_D = ['#25313a', '#2f4a4f', '#3c6a69', '#4f8f87', '#79b8a8', '#b9e0cd'];
-const PUNTOS = {estaciones_tm: ['Estación de TransMilenio', '#1f5b7a'], licencias: ['Licencia urbanística', '#7a3e9d'], bic: ['Inmueble BIC', '#8a6d1d'],
-  turismo: ['Alojamiento turístico (IDT)', '#b5402a'], lotes_educativos: ['Lote con uso educativo', '#2d7d46']};
-const oscuro = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
-const fmt = (v, u) => v == null || isNaN(v) ? 'sin dato' : (u === '$' ? '$' + d3.format(',.0f')(v).replace(/,/g, '.') : d3.format(Math.abs(v) < 10 ? ',.2~f' : ',.1~f')(v).replace(/,/g, 'x').replace(/\./g, ',').replace(/x/g, '.') + (u ? ' ' + u : ''));
-const metros = m => m >= 1000 ? `${fmt(m / 1000, '')} km`.replace(' km', ' km') : `${Math.round(m)} m`;
+// rampas por índice (un solo tono: Parte 1 azul, Parte 2 terracota); en distancias se invierte: más oscuro = más cerca
+const RAMPA = {v1: ['#e1ecf2', '#b4d2e3', '#7eaeca', '#4a84ab', '#1f5b7a'], g: ['#f7e5d5', '#eec4a3', '#df9a6c', '#c76d3d', '#9e4a1f']};
+const PUNTOS = {estaciones_tm: ['Estación de TransMilenio', '#142f4a'], licencias: ['Licencia urbanística', '#6f2da8'], bic: ['Inmueble BIC', '#7a5c12'],
+  turismo: ['Alojamiento turístico (IDT)', '#c2185b'], lotes_educativos: ['Lote con uso educativo', '#1f7a3a']};
+const fmt = (v, u) => v == null || isNaN(v) ? 'sin dato' : (u === '$' ? '$' + d3.format(',.0f')(v).replace(/,/g, '.')
+  : d3.format(Math.abs(v) < 10 ? ',.2~f' : ',.1~f')(v).replace(/,/g, 'x').replace(/\./g, ',').replace(/x/g, '.') + (u ? ' ' + u : ''));
+const metros = m => m >= 1000 ? fmt(m / 1000, 'km') : `${Math.round(m)} m`;
 
-// Variables: capa (v1 = 203 unidades; g = 418 manzanas), campo, unidad, sentido (1: más = más oscuro; -1: menos = más oscuro)
+// Variables: capa (v1 = 203 unidades de la Parte 1; g = 418 manzanas de la Parte 2), campo, unidad, sentido (-1: menos = más oscuro)
 const VARS = {
-  val:    {capa: 'v1', nom: 'Valor del suelo (año elegido)', u: '$', anual: true, d: 'Valor de referencia del suelo por m² que el catastro (UAECD) asigna a la manzana en el año elegido. Mueva el control de año para ver cómo cambió entre 2017 y 2025.'},
-  var:    {capa: 'v1', campo: 'var', nom: 'Aumento del valor 2018–2025', u: '%', d: 'Cambio porcentual del valor de referencia del suelo entre 2018 y 2025: qué tan rápido se revalorizó la manzana en el periodo.'},
-  p2039:  {capa: 'v1', campo: 'p2039', nom: 'Jóvenes de 20 a 39 años', u: '%', d: '% de residentes de 20 a 39 años (Censo 2018): grupo asociado a la llegada de nuevos residentes.'},
-  p60:    {capa: 'v1', campo: 'p60', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018). En este índice, más proporción se lee como permanencia de la población tradicional.'},
-  psup:   {capa: 'v1', campo: 'psup', nom: 'Con educación superior', u: '%', d: '% de residentes con educación técnica, tecnológica, universitaria o de posgrado (Censo 2018).'},
-  tm1:    {capa: 'v1', campo: 'tm_cam', alt: 'tm_recta', nom: 'Cercanía a TransMilenio (caminando)', u: 'm', s: -1, d: 'Distancia caminando por calles desde el centro de la manzana hasta la estación de TransMilenio más cercana (OSRM peatonal sobre OpenStreetMap). Haga clic en una manzana y pase el cursor por las estaciones para ver las distancias.'},
-  otros:  {capa: 'v1', campo: 'otros', nom: 'Vivienda convertida en otros usos', u: '%', d: '% de predios que eran vivienda en 2018 y en 2025 figuran como comercio, servicios o uso educativo.'},
-  tur:    {capa: 'v1', campo: 'tur', nom: 'Oferta turística en la manzana', u: 'por ha', d: 'Vivienda turística y alojamientos por hectárea dentro de la propia manzana.'},
-  trat:   {capa: 'v1', campo: 'trat', nom: 'Norma (tratamiento urbanístico)', u: '', d: 'Qué tanto permite transformar la norma del POT (0 = conservación, cambios muy limitados; 1 = renovación urbana). Se muestra el tratamiento dominante al hacer clic.'},
-  lic:    {capa: 'v1', campo: 'lic', nom: 'Licencias urbanísticas 2018–2025', u: 'por ha', d: 'Licencias aprobadas entre 2018 y 2025 (obra nueva, ampliación, adecuación, reforzamiento, restauración…) por hectárea de manzana. Pase el cursor por un punto para ver la licencia y su año.'},
-  bic:    {capa: 'v1', campo: 'bic', nom: 'Patrimonio (BIC)', u: 'por ha', d: 'Bienes de interés cultural por hectárea de manzana. Los puntos muestran cada inmueble.'},
-  A1:     {capa: 'g', campo: 'A1', nom: 'Brecha de valor del suelo', u: '%', d: 'Cuánto más valdría el suelo con el mejor uso que permite la norma frente a su valor catastral actual. Esta variable está en cálculo; por eso el mapa aparece sin dato.'},
-  A2:     {capa: 'g', campo: 'A2', nom: 'Licencias recientes (300 m)', u: 'por ha', radio: 'licencias', anios: [2022, 2025], d: 'Licencias aprobadas entre 2022 y 2025 a menos de 300 m del centro de la manzana, por hectárea. Haga clic en una manzana para ver el radio de 300 m y las licencias que caen dentro.'},
-  B1:     {capa: 'g', campo: 'B1', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018): menor capacidad de enfrentar alzas de arriendo o impuestos.'},
-  B2:     {capa: 'g', campo: 'B2', nom: 'Sin educación superior', u: '%', d: '% de residentes sin educación superior (Censo 2018): aproxima menor capacidad económica.'},
-  B3:     {capa: 'g', campo: 'B3', nom: 'Viviendas tipo cuarto', u: '%', d: '% de las viviendas que son cuartos, típicas de inquilinatos y «pagadiarios» (Censo 2018): tenencia precaria.'},
-  C1:     {capa: 'g', campo: 'C1_cam', alt: 'C1_recta', nom: 'Cercanía a TransMilenio (caminando)', u: 'm', s: -1, d: 'Distancia caminando por calles a la estación de TransMilenio más cercana. Haga clic en una manzana y pase el cursor por las estaciones para ver las distancias.'},
-  C2:     {capa: 'g', campo: 'C2', nom: 'Presión turística (300 m)', u: 'por ha', radio: 'turismo', d: 'Alojamientos turísticos a menos de 300 m del centro de la manzana, por hectárea. Haga clic para ver el radio de 300 m.'},
-  C4:     {capa: 'g', campo: 'C4', nom: 'Presión universitaria (300 m)', u: '%', radio: 'lotes_educativos', d: '% del área de los lotes a menos de 300 m que tiene uso educativo (universidades e instituciones). Haga clic para ver el radio y los lotes educativos.'},
-  C5:     {capa: 'g', campo: 'C5_cam', alt: 'C5_recta', nom: 'Planes de renovación (caminando)', u: 'm', s: -1, d: 'Distancia caminando por calles al plan parcial de renovación vigente o al proyecto anunciado más cercano (San Bernardo Tercer Milenio, Triángulo de Fenicia, Proyecto Ministerios…). Las manzanas dentro de un plan valen 0.'},
+  val:   {capa: 'v1', nom: 'Valor del suelo', u: '$', anual: true, d: 'Valor de referencia del suelo por m² (UAECD) en el año elegido. Mueva el año para ver cómo cambió entre 2017 y 2025.'},
+  var:   {capa: 'v1', campo: 'var', nom: 'Aumento del valor 2018–2025', u: '%', d: 'Cambio porcentual del valor de referencia del suelo entre 2018 y 2025: qué tan rápido se revalorizó la manzana.'},
+  p2039: {capa: 'v1', campo: 'p2039', nom: 'Jóvenes de 20 a 39 años', u: '%', d: '% de residentes de 20 a 39 años (Censo 2018).'},
+  p60:   {capa: 'v1', campo: 'p60', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018). Más proporción se lee como permanencia de la población tradicional.'},
+  psup:  {capa: 'v1', campo: 'psup', nom: 'Con educación superior', u: '%', d: '% de residentes con educación técnica, tecnológica, universitaria o de posgrado (Censo 2018).'},
+  tm1:   {capa: 'v1', campo: 'tm_cam', alt: 'tm_recta', nom: 'Cercanía a TransMilenio', u: 'm', s: -1, pts: 'estaciones_tm', d: 'Distancia caminando por las calles hasta la estación de TransMilenio más cercana (OSRM peatonal).'},
+  otros: {capa: 'v1', campo: 'otros', nom: 'Vivienda convertida en otros usos', u: '%', d: '% de predios que eran vivienda en 2018 y en 2025 figuran como comercio, servicios o uso educativo.'},
+  tur:   {capa: 'v1', campo: 'tur', nom: 'Oferta turística en la manzana', u: 'por ha', pts: 'turismo', d: 'Vivienda turística y alojamientos por hectárea dentro de la propia manzana.'},
+  trat:  {capa: 'v1', campo: 'trat', nom: 'Norma (tratamiento urbanístico)', u: '', d: 'Qué tanto permite transformar la norma del POT: 0 = conservación, 1 = renovación urbana.'},
+  lic:   {capa: 'v1', campo: 'lic', nom: 'Licencias urbanísticas 2018–2025', u: 'por ha', pts: 'licencias', d: 'Licencias aprobadas entre 2018 y 2025 por hectárea de manzana. Cada punto es una licencia.'},
+  bic:   {capa: 'v1', campo: 'bic', nom: 'Patrimonio (BIC)', u: 'por ha', pts: 'bic', d: 'Bienes de interés cultural por hectárea de manzana. Cada punto es un inmueble BIC.'},
+  A1:    {capa: 'g', campo: 'A1', nom: 'Brecha de valor del suelo', u: '%', d: 'Cuánto más valdría el suelo con el mejor uso que permite la norma frente a su valor catastral actual. Variable en cálculo.'},
+  A2:    {capa: 'g', campo: 'A2', nom: 'Licencias recientes (300 m)', u: 'por ha', radio: 'licencias', anios: [2022, 2025], pts: 'licencias', d: 'Licencias aprobadas entre 2022 y 2025 a menos de 300 m del centro de la manzana, por hectárea.'},
+  B1:    {capa: 'g', campo: 'B1', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018): menor capacidad de enfrentar alzas de arriendo o impuestos.'},
+  B2:    {capa: 'g', campo: 'B2', nom: 'Sin educación superior', u: '%', d: '% de residentes sin educación superior (Censo 2018).'},
+  B3:    {capa: 'g', campo: 'B3', nom: 'Viviendas tipo cuarto', u: '%', d: '% de viviendas que son cuartos, típicas de inquilinatos y «pagadiarios» (Censo 2018).'},
+  C1:    {capa: 'g', campo: 'C1_cam', alt: 'C1_recta', nom: 'Cercanía a TransMilenio', u: 'm', s: -1, pts: 'estaciones_tm', d: 'Distancia caminando por las calles hasta la estación de TransMilenio más cercana (OSRM peatonal).'},
+  C2:    {capa: 'g', campo: 'C2', nom: 'Presión turística (300 m)', u: 'por ha', radio: 'turismo', pts: 'turismo', d: 'Alojamientos turísticos a menos de 300 m del centro de la manzana, por hectárea.'},
+  C4:    {capa: 'g', campo: 'C4', nom: 'Presión universitaria (300 m)', u: '%', radio: 'lotes_educativos', pts: 'lotes_educativos', d: '% del área de los lotes a menos de 300 m con uso educativo (universidades e instituciones).'},
+  C5:    {capa: 'g', campo: 'C5_cam', alt: 'C5_recta', nom: 'Planes de renovación', u: 'm', s: -1, planes: true, d: 'Distancia caminando por las calles al plan parcial de renovación vigente o al proyecto anunciado más cercano. Dentro de un plan, 0.'},
 };
-// Grupos = cuadrículas de la encuesta (el enlace de cada pregunta lleva su #código)
-const GRUPOS = [
-  {id: 'p1dim', parte: 'Parte 1 · Índice de gentrificación', t: 'Comparación entre dimensiones', vars: ['var', 'p2039', 'tm1', 'lic'], q: '¿Cuál dimensión pesa más como evidencia de que la gentrificación AVANZÓ entre 2018 y 2025? Use el selector para ver una variable representativa de cada dimensión (ECO, SOC, FUN, FIS).'},
-  {id: 'eco', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión ECO · Económica', vars: ['val', 'var'], q: 'Valor del suelo 2025 (nivel: qué tan cara está hoy la manzana) frente a aumento 2018–2025 (cambio: qué tan rápido subió). Mueva el año para ver la evolución.'},
-  {id: 'soc', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión SOC · Sociodemográfica', vars: ['p2039', 'p60', 'psup'], q: '¿Qué rasgo de los residentes pesa más como evidencia de que llegaron nuevos residentes?'},
-  {id: 'fun', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión FUN · Funcional', vars: ['tm1', 'otros', 'tur'], q: 'Accesibilidad, pérdida de vivienda frente a otros usos y turismo ya instalado.'},
-  {id: 'fis', parte: 'Parte 1 · Índice de gentrificación', t: 'Dimensión FIS · Físico-urbana', vars: ['trat', 'lic', 'bic'], q: 'Lo que permite la norma, la transformación ya tramitada (licencias) y el patrimonio. Licencias y BIC son dos caminos distintos del cambio físico: obra nueva o rehabilitación frente a atractivo patrimonial.'},
-  {id: 'p2dim', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Comparación entre dimensiones', vars: ['A2', 'B3', 'C1', 'C5'], q: '¿Qué dimensión pesa más como CONDICIÓN para un mayor avance (2025–2026)? Use el selector para ver una variable de INC, VUL y ATR. En gris, manzanas sin población residente (no entran al índice).'},
-  {id: 'inc', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Dimensión INC · Incentivo económico', vars: ['A2', 'A1'], q: 'Brecha de valor del suelo frente a licencias recientes en un radio de 300 m.'},
-  {id: 'vul', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Dimensión VUL · Vulnerabilidad', vars: ['B1', 'B2', 'B3'], q: '¿Qué rasgo hace más vulnerables a los residentes frente al aumento de costos?'},
-  {id: 'atr', parte: 'Parte 2 · Índice de gentrificabilidad', t: 'Dimensión ATR · Atractivo del entorno', vars: ['C1', 'C2', 'C4', 'C5'], q: 'TransMilenio y planes se miden caminando por calles; turismo y universidades, en un radio de 300 m (círculo al hacer clic).'},
-];
-// Dimensiones -> variables (para los enlaces de las preguntas entre dimensiones, p. ej. #p1dim-ECO-SOC)
 const DIMS = {
-  ECO: ['Económica', ['val', 'var']], SOC: ['Sociodemográfica', ['p2039', 'p60', 'psup']], FUN: ['Funcional', ['tm1', 'otros', 'tur']],
-  FIS: ['Físico-urbana', ['trat', 'lic', 'bic']], INC: ['Incentivo económico', ['A1', 'A2']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']],
-  ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
+  ECO: ['Económica', ['val', 'var']], SOC: ['Sociodemográfica', ['p2039', 'p60', 'psup']], FUN: ['Funcional', ['tm1', 'otros', 'tur']], FIS: ['Físico-urbana', ['trat', 'lic', 'bic']],
+  INC: ['Incentivo económico', ['A2', 'A1']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']], ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
 };
-let D, grupo = GRUPOS[1], vsel = 'val', anio = 2025, sectorSel = '', sel = null, zk = 1, estado = {};
-const activos = {};   // capas de puntos encendidas (se recuerdan al cambiar de variable)
-const svg = d3.select('#mapa'), g = svg.append('g');
-const gMz = g.append('g'), gPl = g.append('g'), gSec = g.append('g'), gPts = g.append('g'), gSel = g.append('g');
-let proj, path;
+const PARTES = {
+  V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria', capa: 'v1',
+       q: '¿Cuál de los dos pesa más como <b>evidencia de que la gentrificación avanzó</b> en la manzana entre 2018 y 2025, y cuánto más?'},
+  G:  {chip: 'PARTE 2', nom: 'Índice de gentrificabilidad', ambito: '¿Qué condiciones actuales favorecen un mayor avance (2025–2026)? · 418 manzanas de La Candelaria y 6 sectores vecinos; en gris, sin población residente', capa: 'g',
+       q: '¿Cuál de los dos pesa más como <b>condición que podría favorecer un mayor avance</b> de la gentrificación (2025–2026), y cuánto más?'},
+};
+const GRUPOS = [
+  {id: 'p1dim', parte: 'V1', t: 'Comparación entre dimensiones', dims: ['ECO', 'SOC', 'FUN', 'FIS']},
+  {id: 'eco', parte: 'V1', t: 'Dimensión ECO · Económica', vars: ['val', 'var']},
+  {id: 'soc', parte: 'V1', t: 'Dimensión SOC · Sociodemográfica', vars: ['p2039', 'p60', 'psup']},
+  {id: 'fun', parte: 'V1', t: 'Dimensión FUN · Funcional', vars: ['tm1', 'otros', 'tur']},
+  {id: 'fis', parte: 'V1', t: 'Dimensión FIS · Físico-urbana', vars: ['trat', 'lic', 'bic']},
+  {id: 'p2dim', parte: 'G', t: 'Comparación entre dimensiones', dims: ['INC', 'VUL', 'ATR']},
+  {id: 'inc', parte: 'G', t: 'Dimensión INC · Incentivo económico', vars: ['A2', 'A1']},
+  {id: 'vul', parte: 'G', t: 'Dimensión VUL · Vulnerabilidad', vars: ['B1', 'B2', 'B3']},
+  {id: 'atr', parte: 'G', t: 'Dimensión ATR · Atractivo del entorno', vars: ['C1', 'C2', 'C4', 'C5']},
+];
+const NOTAS = {   // aclaraciones que acompañan a algunas comparaciones de la encuesta
+  'val|var': 'A mide el <b>nivel</b>: qué tan cara está hoy la manzana (puede serlo desde antes de 2018). B mide el <b>cambio</b>: qué tan rápido se revalorizó entre 2018 y 2025.',
+  'lic|bic': 'No son redundantes: las licencias miden la transformación física ya tramitada; los BIC, el patrimonio protegido, que atrae pero también limita lo que se puede construir.',
+  'A1|A2': 'La brecha mide la ganancia posible en la propia manzana; las licencias recientes, la inversión que ya llega al entorno. La brecha está en cálculo.',
+};
+
+let D, P = [], sel = null, sectorSel = '', anio = 2025, grupo = null, pregunta = null, sincronizando = false;
+const ESTILO_SEL = {color: '#d1352b', weight: 3, fillOpacity: 0};
 
 function iniciar() {
-  const todo = {type: 'FeatureCollection', features: [...D.manzanas.features, ...D.unidades_v1.features]};
-  const box = svg.node().getBoundingClientRect();
-  proj = d3.geoMercator().fitExtent([[12, 12], [Math.max(200, box.width) - 12, Math.max(200, box.height) - 12]], todo);
-  path = d3.geoPath(proj);
-  D.sectores.features.sort((a, b) => a.properties.n.localeCompare(b.properties.n)).forEach(f =>
-    d3.select('#sector').append('option').attr('value', f.properties.cod).text(f.properties.n));
-  gSec.selectAll('path').data(D.sectores.features).join('path').attr('class', 'sector').attr('d', path);
-  gSec.selectAll('text').data(D.sectores.features).join('text').attr('class', 'sector-et')
-    .attr('x', f => path.centroid(f)[0]).attr('y', f => path.centroid(f)[1]).attr('text-anchor', 'middle').text(f => f.properties.n);
-  gPl.selectAll('path').data(D.planes.features).join('path').attr('class', 'plan').attr('d', path)
-    .on('mousemove', (e, f) => tip(e, textoPlan(f))).on('mouseleave', ocultarTip);
-  const zoom = d3.zoom().scaleExtent([1, 14]).on('zoom', e => {
-    zk = e.transform.k; g.attr('transform', e.transform);
-    g.selectAll('.sector-et').attr('font-size', 9 / zk);
-    g.selectAll('circle.pt').attr('r', 2.6 / Math.sqrt(zk)).attr('stroke-width', 6 / zk);
-    barraEscala();
+  D = window.DATOS;
+  D.sectores.features.sort((a, b) => a.properties.n.localeCompare(b.properties.n))
+    .forEach(f => d3.select('#sector').append('option').attr('value', f.properties.cod).text(f.properties.n));
+  FUENTES.forEach(t => d3.select('#fuentes').append('li').text(t));
+  const nav = d3.select('#nav');
+  ['V1', 'G'].forEach(p => {
+    const og = nav.append('optgroup').attr('label', `${PARTES[p].chip} · ${PARTES[p].nom}`);
+    GRUPOS.filter(g => g.parte === p).forEach(g => og.append('option').attr('value', g.id).text(g.t));
   });
-  svg.call(zoom);
-  d3.select('#zmas').on('click', () => svg.transition().call(zoom.scaleBy, 1.6));
-  d3.select('#zmenos').on('click', () => svg.transition().call(zoom.scaleBy, 1 / 1.6));
-  d3.select('#zini').on('click', () => svg.transition().call(zoom.transform, d3.zoomIdentity));
-  GRUPOS.forEach(gr => d3.select('#tabs').append('button').attr('type', 'button').attr('data-id', gr.id)
-    .text(gr.t.replace('Dimensión ', '').replace('Comparación entre dimensiones', gr.parte.startsWith('Parte 1') ? 'P1 · dimensiones' : 'P2 · dimensiones'))
-    .on('click', () => { location.hash = gr.id; }));
-  d3.select('#var').on('change', e => { vsel = e.target.value; sel = null; dibujar(); });
-  d3.select('#anio').on('input', e => { anio = +e.target.value; dibujar(); });
-  d3.select('#sector').on('change', e => { sectorSel = e.target.value; dibujar(); });
+  nav.on('change', e => { location.hash = e.target.value; });
+  d3.select('#sector').on('change', e => { sectorSel = e.target.value; P.forEach(pintar); encuadrar(); });
   d3.select('#descargar').on('click', descargar);
-  const lf = d3.select('#ley-flot');
-  if (matchMedia('(max-width: 760px)').matches) { lf.classed('cerrada', true); d3.select('#ley-toggle').text('Ver leyenda').attr('aria-expanded', 'false'); }
-  d3.select('#ley-toggle').on('click', function () {
-    const c = !lf.classed('cerrada'); lf.classed('cerrada', c);
-    d3.select(this).text(c ? 'Ver leyenda' : 'Ocultar leyenda').attr('aria-expanded', String(!c));
-  });
-  window.addEventListener('hashchange', () => ponerGrupo(location.hash.slice(1)));
-  ponerGrupo(location.hash.slice(1) || 'eco');
-  barraEscala();
+  window.addEventListener('hashchange', () => construir(location.hash.slice(1)));
+  construir(location.hash.slice(1) || 'eco');
 }
 
-// #grupo (todas las variables del grupo) o #grupo-A-B (la pregunta A frente a B; A y B son variables o dimensiones)
-function ponerGrupo(hash) {
+// #grupo → un mapa por variable (o por dimensión); #grupo-A-B → dos mapas, A y B (variables o dimensiones)
+function construir(hash) {
   const [id, a, b] = decodeURIComponent(hash || '').split('-');
-  grupo = GRUPOS.find(x => x.id === id) || GRUPOS[1];
-  let vars = grupo.vars;
-  const comp = d3.select('#comparacion').property('hidden', true);
-  const nombre = k => DIMS[k] ? `${k} · ${DIMS[k][0]}` : VARS[k] ? VARS[k].nom : null;
-  if (a && b && nombre(a) && nombre(b)) {
-    vars = [a, b].flatMap(k => DIMS[k] ? DIMS[k][1] : [k]);
-    comp.property('hidden', false).html('');
-    comp.append('div').html(`Pregunta: <b>A</b> = ${nombre(a)} &nbsp;frente a&nbsp; <b>B</b> = ${nombre(b)}`);
-    comp.append('div').attr('class', 'nota').text(DIMS[a] ? 'El selector muestra las variables de las dos dimensiones.' : 'Cambie entre A y B en el selector de variable.');
-  }
-  vsel = vars.find(k => k !== 'A1') || vars[0]; sel = null;   // A1 (brecha) aún sin datos: se abre la otra variable
-  d3.selectAll('#tabs button').attr('aria-pressed', function () { return this.dataset.id === grupo.id; });
-  d3.select('#parte').text(grupo.parte);
-  d3.select('#titulo').text(grupo.t);
-  d3.select('#pregunta').text(grupo.q);
-  const s = d3.select('#var'); s.selectAll('option').remove();
-  vars.forEach(k => s.append('option').attr('value', k).text((DIMS[a] || DIMS[b] ? Object.keys(DIMS).find(d => DIMS[d][1].includes(k)) + ' · ' : '') + VARS[k].nom));
-  s.property('value', vsel);
-  dibujar();
-}
+  grupo = GRUPOS.find(g => g.id === id) || GRUPOS[1];
+  const parte = PARTES[grupo.parte];
+  document.body.dataset.parte = grupo.parte;
+  const esDim = k => !!DIMS[k];
+  const valido = k => esDim(k) || !!VARS[k];
+  pregunta = a && b && valido(a) && valido(b) ? [a, b] : null;
+  let defs;
+  if (pregunta) defs = pregunta.map((k, i) => ({rotulo: 'AB'[i], dim: esDim(k) ? k : null, vars: esDim(k) ? DIMS[k][1] : [k]}));
+  else if (grupo.dims) defs = grupo.dims.map(k => ({rotulo: null, dim: k, vars: DIMS[k][1]}));
+  else defs = grupo.vars.map(k => ({rotulo: null, dim: null, vars: [k]}));
 
-// Evolución del valor de referencia: mediana de las 203 manzanas y la manzana elegida
-function grafico() {
-  const ver = vsel === 'val' || vsel === 'var';
-  d3.select('#grafico').property('hidden', !ver);
-  if (!ver) return;
-  const anios = d3.range(2017, 2026), css = getComputedStyle(document.documentElement);
-  const med = anios.map(y => ({y, v: d3.median(D.unidades_v1.features, f => f.properties.vref ? f.properties.vref[String(y)] : undefined)})).filter(d => d.v != null);
-  const mz = sel && sel.properties.vref ? anios.map(y => ({y, v: sel.properties.vref[String(y)]})).filter(d => d.v != null) : [];
-  const W = 320, H = 150, m = {l: 44, r: 10, t: 10, b: 20};
-  const x = d3.scaleLinear().domain([2017, 2025]).range([m.l, W - m.r]);
-  const y = d3.scaleLinear().domain([0, d3.max([...med, ...mz], d => d.v) * 1.08]).nice(4).range([H - m.b, m.t]);
-  const S = d3.select('#graf-svg'); S.selectAll('*').remove();
-  S.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('class', 'eje').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y);
-  S.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('x', m.l - 4).attr('y', d => y(d) + 3).attr('text-anchor', 'end').text(d => d === 0 ? '$0' : d >= 1e6 ? `$${d3.format('.1~f')(d / 1e6).replace('.', ',')} M` : `$${d3.format(',.0f')(d / 1e3)} mil`);
-  S.append('g').selectAll('text').data([2017, 2019, 2021, 2023, 2025]).join('text').attr('x', x).attr('y', H - 5).attr('text-anchor', 'middle').text(d => d);
-  S.append('line').attr('x1', x(anio)).attr('x2', x(anio)).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', css.getPropertyValue('--muted')).attr('stroke-dasharray', '2 2');
-  const linea = d3.line().x(d => x(d.y)).y(d => y(d.v));
-  const series = [{d: med, c: css.getPropertyValue('--muted'), n: 'Mediana de las 203 manzanas'}];
-  if (mz.length) series.push({d: mz, c: css.getPropertyValue('--hi'), n: 'Manzana ' + sel.properties.cod});
-  series.forEach(s => {
-    S.append('path').attr('d', linea(s.d)).attr('fill', 'none').attr('stroke', s.c).attr('stroke-width', 2);
-    S.append('g').selectAll('circle').data(s.d).join('circle').attr('cx', d => x(d.y)).attr('cy', d => y(d.v)).attr('r', 3.5)
-      .attr('fill', s.c).attr('stroke', css.getPropertyValue('--panel')).attr('stroke-width', 1.5)
-      .append('title').text(d => `${s.n} · ${d.y}: ${fmt(d.v, '$')} por m²`);
+  d3.select('#chip').text(parte.chip); d3.select('#h-indice').text(parte.nom); d3.select('#ambito').text(parte.ambito);
+  d3.select('#h-dim').text(grupo.t);
+  const nombre = k => esDim(k) ? `${k} · ${DIMS[k][0]}` : VARS[k].nom + (k === 'val' ? ' 2025' : '');
+  let q = pregunta
+    ? `<b>A</b> = ${nombre(pregunta[0])} &nbsp;frente a&nbsp; <b>B</b> = ${nombre(pregunta[1])}. ${parte.q}`
+    : (grupo.dims ? `Un mapa por dimensión, con una variable representativa de cada una (cambie la variable con las pestañas). ${parte.q}` : `Un mapa por variable de la dimensión. ${parte.q}`);
+  const nota = pregunta && (NOTAS[pregunta.join('|')] || NOTAS[[...pregunta].reverse().join('|')]);
+  if (nota) q += `<br><span style="color:var(--muted)">${nota}</span>`;
+  d3.select('#pregunta').html(q);
+  const nav = d3.select('#nav');
+  nav.selectAll('option.preg').remove();
+  if (pregunta) nav.insert('option', ':first-child').attr('class', 'preg').attr('value', hash).text('Pregunta: A frente a B');
+  nav.property('value', pregunta ? hash : grupo.id);
+
+  // paneles
+  P.forEach(p => p.map.remove());
+  P = [];
+  sel = null;
+  const cont = d3.select('#paneles'); cont.selectAll('*').remove();
+  const n = defs.length, cols = n === 1 ? 1 : n === 3 ? 3 : 2, alto = n <= 2 ? '62vh' : n === 3 ? '54vh' : '44vh';
+  cont.style('--cols', cols).style('--alto', alto);
+  defs.forEach((df, i) => {
+    const art = cont.append('article').attr('class', 'panel');
+    const cab = art.append('div').attr('class', 'panel-cab');
+    if (df.rotulo) cab.append('span').attr('class', 'rotulo').text(df.rotulo);
+    const tx = cab.append('div').style('min-width', 0);
+    tx.append('div').attr('class', 'panel-tit');
+    tx.append('div').attr('class', 'panel-sub');
+    if (df.vars.length > 1) tx.append('div').attr('class', 'tabs no-print');
+    const mapa = art.append('div').attr('class', 'mapa').attr('id', 'mapa-' + i);
+    mapa.append('div').attr('class', 'norte').text('N');
+    mapa.append('div').attr('class', 'sin-datos').property('hidden', true);
+    art.append('div').attr('class', 'anio no-print').property('hidden', true)
+      .html('<span>Año</span><input type="range" min="2017" max="2025" step="1"><b class="anio-txt"></b>');
+    art.append('div').attr('class', 'leyenda');
+    art.append('div').attr('class', 'capas no-print');
+    const p = {i, el: art, rotulo: df.rotulo, dim: df.dim, vars: df.vars, v: df.vars.find(k => k !== 'A1') || df.vars[0], puntosOn: true};
+    p.map = L.map(mapa.node(), {zoomControl: true, attributionControl: true, zoomSnap: .5, preferCanvas: false});
+    p.map.attributionControl.setPrefix('');
+    // mapa base: OpenStreetMap estándar, en gris (CSS) para que no compita con los colores de las manzanas
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© colaboradores de OpenStreetMap', maxZoom: 19, crossOrigin: 'anonymous'}).addTo(p.map);
+    L.control.scale({imperial: false, position: 'bottomleft'}).addTo(p.map);
+    p.map.on('move', () => sincronizar(p));
+    p.capaSec = L.geoJSON(D.sectores, {style: {color: '#3a4856', weight: 1.3, opacity: .7, fill: false, dashArray: null}, interactive: false}).addTo(p.map);
+    p.capaPl = L.layerGroup().addTo(p.map); p.capaPts = L.layerGroup().addTo(p.map); p.capaSel = L.layerGroup().addTo(p.map);
+    p.capaMz = null;
+    art.select('.anio input').on('input', e => { anio = +e.target.value; P.forEach(pintar); ficha(); });
+    P.push(p);
+    pintar(p);
   });
-  d3.select('#graf-tit').text('Valor de referencia del suelo por m², 2017–2025' + (mz.length ? '' : ' (haga clic en una manzana para compararla)'));
-  const L = d3.select('#graf-ley'); L.selectAll('*').remove();
-  series.forEach(s => L.append('span').style('--c', s.c).text(s.n));
+  encuadrar(true);
+  requestAnimationFrame(() => P.forEach(p => p.map.invalidateSize()));
+  ficha();
 }
 
-function valor(f, v) {
-  const p = f.properties, def = VARS[v];
-  if (def.anual) return p.vref ? (p.vref[String(anio)] ?? null) : null;
-  let x = p[def.campo];
-  if ((x == null || x === '') && def.alt) x = p[def.alt];
-  return x == null || x === '' ? null : +x;
+function sincronizar(p) {
+  if (sincronizando) return;
+  sincronizando = true;
+  P.forEach(q => { if (q !== p) q.map.setView(p.map.getCenter(), p.map.getZoom(), {animate: false}); });
+  sincronizando = false;
 }
-const excluida = f => VARS[vsel].capa === 'g' && f.properties.filtro === 'EXCLUIDA_SIN_POBLACION_RESIDENTE';
-
-function dibujar() {
-  const def = VARS[vsel], capa = def.capa === 'v1' ? D.unidades_v1 : D.manzanas;
-  d3.select('#caja-anio').property('hidden', !def.anual);
-  d3.select('#anio-txt').text(anio);
-  d3.select('#desc').text(def.d);
-  const vals = capa.features.map(f => valor(f, vsel)).filter(x => x != null && !isNaN(x));
-  const pal = oscuro() ? PAL_D : PAL;
-  let esc = null, cortes = [];
-  if (vals.length) {
-    cortes = d3.range(1, 5).map(i => d3.quantile(vals.slice().sort(d3.ascending), i / 5));
-    cortes = [...new Set(cortes.map(c => +c.toFixed(2)))].filter(c => c > d3.min(vals));   // sin clases vacías (p. ej., muchas manzanas en 0)
-    const colores = def.s === -1 ? pal.slice(1, cortes.length + 2).reverse() : pal.slice(1, cortes.length + 2);
-    esc = d3.scaleThreshold().domain(cortes).range(colores);
-  }
-  const enSector = f => !sectorSel || f.properties.cod.startsWith(sectorSel);
-  const css = getComputedStyle(document.documentElement);
-  gMz.selectAll('path').data(capa.features, f => f.properties.cod).join('path')
-    .attr('class', f => 'mz' + (sel && sel.properties.cod === f.properties.cod ? ' sel' : ''))
-    .attr('d', path)
-    .attr('fill', f => { const x = valor(f, vsel); if (excluida(f)) return css.getPropertyValue('--excl'); return x == null || !esc ? 'transparent' : esc(x); })
-    .attr('fill-opacity', f => enSector(f) ? 1 : 0.18)
-    .attr('stroke-dasharray', f => valor(f, vsel) == null && !excluida(f) ? '2 2' : null)
-    .on('click', (e, f) => { sel = f; dibujar(); })
-    .selectAll('title').data(f => [f]).join('title').text(f => `${f.properties.sector} · ${f.properties.cod}\n${def.nom}: ${excluida(f) ? 'sin población residente' : fmt(valor(f, vsel), def.u)}`);
-  gPl.attr('display', planesVisibles() ? null : 'none');
-  estado = {def, esc, cortes, n: vals.length, min: d3.min(vals), max: d3.max(vals), sinDato: vals.length < capa.features.filter(f => !excluida(f)).length};
-  capasPuntos();
-  ficha(def);
-  grafico();
-  leyendaFlotante();
-}
-const planesVisibles = () => vsel === 'C5' || ['atr', 'p2dim', 'inc'].includes(grupo.id);
-
-// Elementos de la leyenda: los usa la leyenda flotante y la imagen descargada
-function itemsLeyenda() {
-  const {def, esc, cortes, n, sinDato} = estado, css = getComputedStyle(document.documentElement), it = [];
-  const titulo = def.nom + (def.anual ? ` · ${anio}` : '') + (def.u && def.u !== '$' ? ` (${def.u})` : def.u === '$' ? ' ($ por m²)' : '');
-  const sub = !n ? 'Esta variable todavía no tiene datos.' : def.s === -1 ? 'Más oscuro = más cerca' : 'Más oscuro = valor más alto';
-  if (n) {
-    const lims = [estado.min, ...cortes, estado.max];
-    esc.range().forEach((c, i) => {
-      const a = lims[i], b = lims[i + 1];
-      it.push({t: 'sw', c, txt: a === b ? fmt(a, def.u) : `${fmt(a, def.u)} – ${fmt(b, def.u)}`});
-    });
-  }
-  if (def.capa === 'g') it.push({t: 'sw', c: css.getPropertyValue('--excl').trim(), txt: 'Sin población residente (fuera del índice)'});
-  if (sinDato) it.push({t: 'sindato', txt: 'Manzana sin dato'});
-  it.push({t: 'sep'});
-  if (planesVisibles()) it.push({t: 'plan', txt: 'Plan de renovación vigente o Proyecto Ministerios'});
-  Object.keys(PUNTOS).forEach(k => { if (activos[k] && estado.capasOn && estado.capasOn.includes(k)) it.push({t: 'punto', c: PUNTOS[k][1], txt: PUNTOS[k][0] + (k === 'licencias' && vsel === 'A2' ? ' (2022–2025)' : '')}); });
-  if (sel && def.radio) it.push({t: 'radio', txt: 'Radio de 300 m desde el centro de la manzana'});
-  if (sel && (vsel === 'tm1' || vsel === 'C1')) it.push({t: 'conector', txt: 'Hacia la estación más cercana (caminando)'});
-  if (sel) it.push({t: 'sel', txt: 'Manzana seleccionada'});
-  it.push({t: 'sector', txt: 'Límite de sector catastral'});
-  return {titulo, sub, items: it};
+function encuadrar(inicial) {
+  if (!P.length) return;
+  const capa = D[VARS[P[0].v].capa === 'v1' ? 'unidades_v1' : 'manzanas'];
+  let fs = capa.features;
+  if (sectorSel) { const s = fs.filter(f => f.properties.cod.startsWith(sectorSel)); if (s.length) fs = s; }
+  const b = L.geoJSON({type: 'FeatureCollection', features: fs}).getBounds();
+  P[0].map.fitBounds(b, {padding: [10, 10], animate: !inicial});
 }
 
-function icono(sel0, d, css) {
-  const s = sel0.append('svg').attr('width', 22).attr('height', 14).attr('viewBox', '0 0 22 14');
-  dibujarIcono(s, d, css, 0, 0);
-}
-function dibujarIcono(s, d, css, x, y) {
-  const hi = css.getPropertyValue('--hi').trim(), fg = css.getPropertyValue('--fg').trim(), line = css.getPropertyValue('--line').trim();
-  if (d.t === 'sw') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', d.c).attr('stroke', line);
-  else if (d.t === 'sindato') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', 'none').attr('stroke', css.getPropertyValue('--muted').trim()).attr('stroke-dasharray', '2 2');
-  else if (d.t === 'plan') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', hi).attr('fill-opacity', .12).attr('stroke', hi).attr('stroke-width', 1.4).attr('stroke-dasharray', '4 2');
-  else if (d.t === 'punto') s.append('circle').attr('cx', x + 11).attr('cy', y + 7).attr('r', 4).attr('fill', d.c).attr('stroke', css.getPropertyValue('--panel').trim()).attr('stroke-width', 1);
-  else if (d.t === 'radio') s.append('circle').attr('cx', x + 11).attr('cy', y + 7).attr('r', 6).attr('fill', hi).attr('fill-opacity', .08).attr('stroke', hi).attr('stroke-width', 1.2);
-  else if (d.t === 'conector') s.append('line').attr('x1', x + 1).attr('x2', x + 21).attr('y1', y + 7).attr('y2', y + 7).attr('stroke', hi).attr('stroke-width', 1.6).attr('stroke-dasharray', '3 3');
-  else if (d.t === 'sel') s.append('rect').attr('x', x + 1).attr('y', y + 2).attr('width', 20).attr('height', 10).attr('fill', 'none').attr('stroke', hi).attr('stroke-width', 2);
-  else if (d.t === 'sector') s.append('line').attr('x1', x + 1).attr('x2', x + 21).attr('y1', y + 7).attr('y2', y + 7).attr('stroke', fg).attr('stroke-opacity', .55).attr('stroke-width', 1.2);
+const valor = (f, v) => { const p = f.properties, def = VARS[v]; if (def.anual) return p.vref ? (p.vref[String(anio)] ?? null) : null;
+  let x = p[def.campo]; if ((x == null || x === '') && def.alt) x = p[def.alt]; return x == null || x === '' ? null : +x; };
+const excluida = (f, v) => VARS[v].capa === 'g' && f.properties.filtro === 'EXCLUIDA_SIN_POBLACION_RESIDENTE';
+const enSector = f => !sectorSel || f.properties.cod.startsWith(sectorSel);
+
+function escala(p) {
+  const def = VARS[p.v], capa = D[def.capa === 'v1' ? 'unidades_v1' : 'manzanas'];
+  const vals = capa.features.map(f => valor(f, p.v)).filter(x => x != null && !isNaN(x)).sort(d3.ascending);
+  if (!vals.length) return {n: 0};
+  let cortes = [...new Set(d3.range(1, 5).map(i => +d3.quantile(vals, i / 5).toFixed(2)))].filter(c => c > vals[0] && c < vals[vals.length - 1]);
+  const ramp = RAMPA[def.capa].slice(0, cortes.length + 1);
+  const colores = def.s === -1 ? ramp.slice().reverse() : ramp;
+  return {n: vals.length, min: vals[0], max: vals[vals.length - 1], cortes, esc: d3.scaleThreshold().domain(cortes).range(colores), capa};
 }
 
-function leyendaFlotante() {
-  const {titulo, sub, items} = itemsLeyenda(), css = getComputedStyle(document.documentElement);
-  const C = d3.select('#ley-cuerpo'); C.selectAll('*').remove();
-  C.append('h2').text(titulo);
-  C.append('p').attr('class', 'sub').text(sub);
-  items.forEach(d => {
-    if (d.t === 'sep') { C.append('div').attr('class', 'sep'); return; }
-    const f = C.append('div').attr('class', 'fila'); icono(f, d, css); f.append('span').text(d.txt);
+function pintar(p) {
+  const def = VARS[p.v], E = escala(p); p.E = E;
+  const capaNom = def.capa === 'v1' ? 'unidades_v1' : 'manzanas';
+  p.el.select('.panel-tit').text((p.dim ? `${p.dim} · ${DIMS[p.dim][0]}: ` : '') + def.nom + (def.anual ? ` ${anio}` : ''));
+  p.el.select('.panel-sub').text(def.d);
+  const tabs = p.el.select('.tabs');
+  if (!tabs.empty()) tabs.selectAll('button').data(p.vars).join('button').attr('type', 'button').text(k => VARS[k].nom)
+    .attr('aria-pressed', k => k === p.v).on('click', (e, k) => { p.v = k; pintar(p); ficha(); });
+  p.el.select('.anio').property('hidden', !def.anual).select('.anio-txt').text(anio);
+  p.el.select('.anio input').property('value', anio);
+  p.el.select('.sin-datos').property('hidden', E.n > 0).text(E.n ? '' : 'Esta variable todavía está en cálculo: el mapa no tiene datos.');
+  const estilo = f => {
+    const x = valor(f, p.v), ex = excluida(f, p.v);
+    return {color: '#ffffff', weight: .6, opacity: .9, fillColor: ex ? '#cfd2cc' : x == null || !E.esc ? '#ffffff' : E.esc(x),
+            fillOpacity: !enSector(f) ? .12 : ex ? .85 : x == null ? .25 : .82, dashArray: x == null && !ex ? '3 3' : null};
+  };
+  if (!p.capaMz || p.capaNom !== capaNom) {
+    if (p.capaMz) p.capaMz.remove();
+    p.capaNom = capaNom;
+    p.capaMz = L.geoJSON(D[capaNom], {style: estilo, onEachFeature: (f, l) => {
+      l.bindTooltip(() => `<b>${f.properties.sector}</b> · manzana ${f.properties.cod}<br>${VARS[p.v].nom}: ${excluida(f, p.v) ? 'sin población residente (fuera del índice)' : fmt(valor(f, p.v), VARS[p.v].u)}`, {sticky: true, className: 'tt'});
+      l.on('click', () => { sel = f; P.forEach(seleccion); ficha(); });
+    }}).addTo(p.map);
+    p.capaMz.bringToBack();
+  } else p.capaMz.setStyle(estilo);
+  leyenda(p); puntos(p); planes(p); seleccion(p);
+}
+
+function leyenda(p) {
+  const def = VARS[p.v], E = p.E, L0 = p.el.select('.leyenda'); L0.selectAll('*').remove();
+  const titulo = def.nom + (def.anual ? ` ${anio}` : '') + (def.u === '$' ? ' ($ por m²)' : def.u ? ` (${def.u})` : '');
+  L0.append('div').attr('class', 'tit').text(titulo);
+  if (!E.n) { L0.append('div').attr('class', 'nota').text('Sin datos todavía.'); return; }
+  L0.append('div').attr('class', 'nota').text((def.s === -1 ? 'Más oscuro = más cerca' : 'Más oscuro = valor más alto') + ' · clases por quintiles');
+  const lims = [E.min, ...E.cortes, E.max];
+  E.esc.range().forEach((c, i) => fila(L0, 'sw', c, lims[i] === lims[i + 1] ? fmt(lims[i], def.u) : `${fmt(lims[i], def.u)} – ${fmt(lims[i + 1], def.u)}`));
+  if (def.capa === 'g') fila(L0, 'sw', '#cfd2cc', 'Sin población residente (fuera del índice)');
+  if (def.pts && p.puntosOn) fila(L0, 'punto', PUNTOS[def.pts][1], PUNTOS[def.pts][0] + (def.anios ? ` (${def.anios[0]}–${def.anios[1]})` : ''));
+  if (def.planes) fila(L0, 'plan', '#9e4a1f', 'Plan parcial vigente o Proyecto Ministerios');
+  if (def.radio) fila(L0, 'radio', '#d1352b', 'Radio de 300 m (al elegir una manzana)');
+  if (def.pts === 'estaciones_tm') fila(L0, 'linea', '#d1352b', 'Hacia la estación más cercana a pie');
+  fila(L0, 'sector', '#3a4856', 'Límite de sector catastral');
+}
+function fila(L0, t, c, txt) {
+  const f = L0.append('div').attr('class', 'fila'), s = f.append('svg').attr('width', 24).attr('height', 14).attr('viewBox', '0 0 24 14');
+  if (t === 'sw') s.append('rect').attr('x', 1).attr('y', 1).attr('width', 22).attr('height', 12).attr('fill', c).attr('stroke', '#d9dcd6');
+  else if (t === 'punto') s.append('circle').attr('cx', 12).attr('cy', 7).attr('r', 4.5).attr('fill', c).attr('stroke', '#fff');
+  else if (t === 'plan') s.append('rect').attr('x', 1).attr('y', 1).attr('width', 22).attr('height', 12).attr('fill', c).attr('fill-opacity', .15).attr('stroke', c).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 2');
+  else if (t === 'radio') s.append('circle').attr('cx', 12).attr('cy', 7).attr('r', 6).attr('fill', c).attr('fill-opacity', .1).attr('stroke', c).attr('stroke-width', 1.5);
+  else if (t === 'linea') s.append('line').attr('x1', 1).attr('x2', 23).attr('y1', 7).attr('y2', 7).attr('stroke', c).attr('stroke-width', 2).attr('stroke-dasharray', '4 3');
+  else if (t === 'sector') s.append('line').attr('x1', 1).attr('x2', 23).attr('y1', 7).attr('y2', 7).attr('stroke', c).attr('stroke-width', 1.5);
+  f.append('span').text(txt);
+}
+
+function puntos(p) {
+  const def = VARS[p.v], C = p.el.select('.capas'); C.selectAll('*').remove(); p.capaPts.clearLayers();
+  if (!def.pts) return;
+  const k = def.pts, [nom, col] = PUNTOS[k];
+  const l = C.append('label');
+  l.append('input').attr('type', 'checkbox').property('checked', p.puntosOn).on('change', e => { p.puntosOn = e.target.checked; puntos(p); leyenda(p); });
+  l.append('span').text('Mostrar ' + nom.toLowerCase() + (def.anios ? ` ${def.anios[0]}–${def.anios[1]}` : '') + (k === 'licencias' && !def.anios ? ' 2018–2025' : ''));
+  if (!p.puntosOn) return;
+  let fs = D[k].features;
+  if (def.anios) fs = fs.filter(f => f.properties.anio >= def.anios[0] && f.properties.anio <= def.anios[1]);
+  fs.forEach(f => {
+    const [x, y] = f.geometry.coordinates;
+    L.circleMarker([y, x], {radius: k === 'bic' ? 3 : 4.5, color: '#fff', weight: 1, fillColor: col, fillOpacity: .95})
+      .bindTooltip(() => textoPunto(f, k, p), {className: 'tt', direction: 'top'}).addTo(p.capaPts);
   });
 }
-
-function capasPuntos() {
-  const C = d3.select('#capas'); C.selectAll('*').remove();
-  const on = [];
-  if (['tm1', 'C1'].includes(vsel) || ['fun', 'atr', 'p1dim', 'p2dim'].includes(grupo.id)) on.push('estaciones_tm');
-  if (vsel === 'lic' || vsel === 'A2') on.push('licencias');
-  if (vsel === 'bic') on.push('bic');
-  if (vsel === 'tur' || vsel === 'C2') on.push('turismo');
-  if (vsel === 'C4') on.push('lotes_educativos');
-  estado.capasOn = on;
-  on.forEach(k => { if (activos[k] === undefined) activos[k] = true; });
-  if (!on.length) { gPts.selectAll('*').remove(); return; }
-  C.append('div').attr('class', 'nota').text('Puntos en el mapa (pase el cursor por un punto para ver su distancia a la manzana seleccionada)');
-  on.forEach(k => {
-    const l = C.append('label');
-    l.append('input').attr('type', 'checkbox').property('checked', activos[k]).on('change', e => { activos[k] = e.target.checked; pintar(); leyendaFlotante(); });
-    l.append('span').style('display', 'inline-block').style('width', '10px').style('height', '10px').style('border-radius', '50%').style('background', PUNTOS[k][1]);
-    l.append('span').text(PUNTOS[k][0] + (k === 'licencias' ? (vsel === 'A2' ? ' (2022–2025)' : ' (2018–2025)') : ''));
-  });
-  function pintar() {
-    const pts = [];
-    on.forEach(k => {
-      if (!activos[k]) return;
-      let fs = D[k].features;
-      if (k === 'licencias' && vsel === 'A2') fs = fs.filter(f => f.properties.anio >= 2022);
-      fs.forEach(f => pts.push({f, k, col: PUNTOS[k][1]}));
-    });
-    gPts.selectAll('circle.pt').data(pts).join('circle').attr('class', 'pt')
-      .attr('cx', d => proj(d.f.geometry.coordinates)[0]).attr('cy', d => proj(d.f.geometry.coordinates)[1])
-      .attr('r', 2.6 / Math.sqrt(zk)).attr('fill', d => d.col).attr('fill-opacity', .9).attr('stroke', 'transparent').attr('stroke-width', 6 / zk)
-      .on('mousemove', (e, d) => tip(e, textoPunto(d))).on('mouseleave', ocultarTip);
+function planes(p) {
+  p.capaPl.clearLayers();
+  if (!VARS[p.v].planes) return;
+  L.geoJSON(D.planes, {style: {color: '#9e4a1f', weight: 2, dashArray: '6 3', fillColor: '#9e4a1f', fillOpacity: .12},
+    onEachFeature: (f, l) => l.bindTooltip(() => textoPlan(f), {sticky: true, className: 'tt'})}).addTo(p.capaPl);
+}
+function seleccion(p) {
+  p.capaSel.clearLayers();
+  if (p.capaMz) p.capaMz.eachLayer(l => { if (sel && l.feature.properties.cod === sel.properties.cod) { l.setStyle(ESTILO_SEL); l.bringToFront(); } });
+  if (!p.capaMz) return;
+  p.capaMz.setStyle(p.capaMz.options.style);
+  if (!sel) return;
+  const def = VARS[p.v], sp = sel.properties, c = d3.geoCentroid(sel), ll = [c[1], c[0]];
+  p.capaMz.eachLayer(l => { if (l.feature.properties.cod === sp.cod) { l.setStyle(ESTILO_SEL); l.bringToFront(); } });
+  if (def.radio) L.circle(ll, {radius: 300, color: '#d1352b', weight: 2, fillColor: '#d1352b', fillOpacity: .07, interactive: false}).addTo(p.capaSel);
+  if (def.pts === 'estaciones_tm') {
+    const nom = def.capa === 'v1' ? sp.tm_est : sp.C1_est, est = D.estaciones_tm.features.find(f => f.properties.n === nom);
+    if (est) L.polyline([ll, [est.geometry.coordinates[1], est.geometry.coordinates[0]]], {color: '#d1352b', weight: 2, dashArray: '5 4', interactive: false}).addTo(p.capaSel);
   }
-  pintar();
 }
 
-// Distancias para el cursor: desde el centro de la manzana seleccionada
-function textoPunto(d) {
-  const p = d.f.properties, nombre = `<b>${PUNTOS[d.k][0]}</b>` + (p.n ? `: ${p.n}` : '') + (p.anio ? ` · ${p.anio}` : '') + (p.t && d.k !== 'licencias' ? ` · ${p.t}` : '');
-  if (!sel) return nombre + '<br><span class="nota">Haga clic en una manzana para ver la distancia hasta este punto.</span>';
-  const recta = d3.geoDistance(d3.geoCentroid(sel), d.f.geometry.coordinates) * 6371000, sp = sel.properties;
-  let txt = `${nombre}<br>Desde la manzana ${sp.cod}: <b>${metros(recta)}</b> en línea recta`;
-  if (d.k === 'estaciones_tm') {
-    const est = VARS[vsel].capa === 'v1' ? sp.tm_est : sp.C1_est, cam = VARS[vsel].capa === 'v1' ? sp.tm_cam : sp.C1_cam, min = VARS[vsel].capa === 'v1' ? sp.tm_min : sp.C1_min;
-    if (p.n === est && cam != null) txt += `<br>Caminando por las calles: <b>${metros(cam)}</b> (unos ${min} min). Es la estación más cercana a pie.`;
-    else txt += '<br><span class="nota">La distancia caminando se calculó solo hasta la estación más cercana.</span>';
+// textos al pasar el cursor
+function textoPunto(f, k, p) {
+  const pr = f.properties, def = VARS[p.v];
+  let t = `<b>${PUNTOS[k][0]}</b>` + (pr.n ? `: ${pr.n}` : '') + (pr.anio ? ` · ${pr.anio}` : '') + (pr.t && k !== 'licencias' ? ` · ${pr.t}` : '');
+  if (!sel) return t + '<br><span style="color:#5d6b75">Elija una manzana para ver la distancia hasta aquí.</span>';
+  const sp = sel.properties, recta = d3.geoDistance(d3.geoCentroid(sel), f.geometry.coordinates) * 6371000;
+  t += `<br>Desde la manzana ${sp.cod}: <b>${metros(recta)}</b> en línea recta`;
+  if (k === 'estaciones_tm') {
+    const est = def.capa === 'v1' ? sp.tm_est : sp.C1_est, cam = def.capa === 'v1' ? sp.tm_cam : sp.C1_cam, min = def.capa === 'v1' ? sp.tm_min : sp.C1_min;
+    t += pr.n === est && cam != null ? `<br>Caminando por las calles: <b>${metros(cam)}</b> (unos ${min} min). Es la estación más cercana a pie.`
+      : '<br><span style="color:#5d6b75">La distancia caminando se calculó solo hasta la estación más cercana.</span>';
   }
-  if (VARS[vsel].radio === d.k || (d.k === 'licencias' && VARS[vsel].radio === 'licencias')) txt += recta <= 300 ? '<br>Dentro del radio de 300 m.' : '<br>Fuera del radio de 300 m.';
-  return txt;
+  if (def.radio === k) t += recta <= 300 ? '<br>Dentro del radio de 300 m.' : '<br>Fuera del radio de 300 m.';
+  return t;
 }
 function textoPlan(f) {
-  let txt = `<b>${f.properties.n}</b><br>${f.properties.t}`;
-  if (sel && VARS[vsel].capa === 'g') {
+  let t = `<b>${f.properties.n}</b><br>${f.properties.t}`;
+  if (sel && sel.properties.C5_plan !== undefined) {
     const sp = sel.properties, nom = f.properties.n.startsWith('Proyecto Ministerios') ? 'Proyecto Ministerios (P1+P2)' : f.properties.n;
-    if (sp.C5_dentro && sp.C5_dentro === nom) txt += `<br>La manzana ${sp.cod} está dentro de este plan (distancia 0).`;
-    else if (sp.C5_plan === nom && sp.C5_cam != null) txt += `<br>Desde la manzana ${sp.cod}: <b>${metros(sp.C5_cam)}</b> caminando hasta el borde (${metros(sp.C5_recta)} en línea recta). Es el plan más cercano a pie.`;
-    else txt += '<br><span class="nota">La distancia caminando se calculó solo hasta el plan más cercano.</span>';
+    if (sp.C5_dentro && sp.C5_dentro === nom) t += `<br>La manzana ${sp.cod} está dentro de este plan (distancia 0).`;
+    else if (sp.C5_plan === nom && sp.C5_cam != null) t += `<br>Desde la manzana ${sp.cod}: <b>${metros(sp.C5_cam)}</b> caminando hasta el borde (${metros(sp.C5_recta)} en línea recta). Es el plan más cercano a pie.`;
   }
-  return txt;
-}
-function tip(e, html) {
-  const m = d3.select('main').node().getBoundingClientRect(), T = d3.select('#tip').property('hidden', false).html(html), t = T.node();
-  let x = e.clientX - m.left + 14, y = e.clientY - m.top + 14;
-  if (x + t.offsetWidth > m.width - 8) x = e.clientX - m.left - t.offsetWidth - 14;
-  if (y + t.offsetHeight > m.height - 8) y = e.clientY - m.top - t.offsetHeight - 14;
-  x = Math.max(8, Math.min(x, m.width - t.offsetWidth - 8)); y = Math.max(8, y);
-  T.style('left', x + 'px').style('top', y + 'px');
-}
-const ocultarTip = () => d3.select('#tip').property('hidden', true);
-
-function ficha(def) {
-  gSel.selectAll('*').remove();
-  const F = d3.select('#ficha'); F.selectAll('*').remove();
-  if (!sel) { F.append('p').attr('class', 'nota').text('Haga clic en una manzana para ver sus valores.'); return; }
-  const p = sel.properties;
-  F.append('p').style('margin', '0 0 6px').html(`<b>${p.sector}</b> · manzana ${p.cod}`);
-  const tb = F.append('table');
-  [...document.querySelectorAll('#var option')].map(o => o.value).forEach(k => { const v = VARS[k]; if (v.capa !== def.capa) return; const tr = tb.append('tr'); tr.append('td').text(v.nom); tr.append('td').text(excluida(sel) ? '—' : fmt(valor(sel, k), v.u)); });
-  if (def.anual && p.vref) { const tr = tb.append('tr'); tr.append('td').text('Valor 2018 → 2025'); tr.append('td').text(fmt(p.vref['2018'], '$') + ' → ' + fmt(p.vref['2025'], '$')); }
-  if (excluida(sel)) F.append('p').attr('class', 'nota').text('Manzana sin población residente: no entra al índice de gentrificabilidad.');
-  const c = path.centroid(sel);
-  if (def.radio) {
-    const ll = d3.geoCentroid(sel), circ = d3.geoCircle().center(ll).radius(300 / 6371000 * 180 / Math.PI)();
-    gSel.append('path').attr('class', 'radio').attr('d', path(circ));
-    let fs = D[def.radio].features; if (def.radio === 'licencias' && def.anios) fs = fs.filter(f => f.properties.anio >= def.anios[0] && f.properties.anio <= def.anios[1]);
-    const n = fs.filter(f => d3.geoDistance(ll, f.geometry.coordinates) * 6371000 <= 300).length;
-    const oficial = def.radio === 'licencias' ? p.A2_n : def.radio === 'turismo' ? p.C2_n : null;
-    const txt = {licencias: 'licencias 2022–2025', turismo: 'alojamientos del IDT', lotes_educativos: 'lotes con uso educativo'}[def.radio];
-    F.append('p').attr('class', 'nota').text(`Círculo: radio de 300 m (28,3 ha) desde el centro de la manzana. Puntos del mapa dentro: ${n} ${txt}.`
-      + (def.radio === 'turismo' && oficial != null ? ` El índice cuenta ${oficial} establecimientos turísticos (vivienda turística + alojamientos); el mapa solo muestra la capa de alojamientos del IDT.` : '')
-      + (def.radio === 'licencias' && oficial != null && oficial !== n ? ` El índice cuenta ${oficial} licencias porque mide sobre los lotes de cada licencia; cada punto del mapa es el centro de una licencia, por eso el conteo puede variar.` : ''));
-  }
-  if (vsel === 'tm1' || vsel === 'C1') {
-    const nom = def.capa === 'v1' ? p.tm_est : p.C1_est;
-    const est = D.estaciones_tm.features.find(f => f.properties.n === nom);
-    if (est) { const q = proj(est.geometry.coordinates); gSel.append('line').attr('class', 'conector').attr('x1', c[0]).attr('y1', c[1]).attr('x2', q[0]).attr('y2', q[1]); }
-    const min = def.capa === 'v1' ? p.tm_min : p.C1_min, recta = def.capa === 'v1' ? p.tm_recta : p.C1_recta, cam = def.capa === 'v1' ? p.tm_cam : p.C1_cam;
-    F.append('p').attr('class', 'nota').text(`Estación más cercana caminando: ${nom || 'sin dato'}: ${fmt(cam, 'm')}${min != null ? ` (unos ${min} min a pie)` : ''}; en línea recta, ${fmt(recta, 'm')}. La línea punteada solo indica hacia dónde queda; la distancia del índice es la del recorrido por las calles.`);
-  }
-  if (vsel === 'C5') F.append('p').attr('class', 'nota').text(p.C5_dentro ? `Dentro de: ${p.C5_dentro} (distancia 0).` : `Plan o proyecto más cercano caminando: ${p.C5_plan || 'sin dato'}: ${fmt(p.C5_cam, 'm')}; en línea recta, ${fmt(p.C5_recta, 'm')}.`);
-  if (vsel === 'trat' && p.trat_nom) F.append('p').attr('class', 'nota').text('Tratamiento dominante: ' + p.trat_nom);
+  return t;
 }
 
-// Barra de escala: metros por píxel en el centro del mapa, con el zoom actual
-function escalaMetros(px) {
-  const r = svg.node().getBoundingClientRect(), t = d3.zoomTransform(svg.node());
-  const a = proj.invert(t.invert([r.width / 2, r.height / 2])), b = proj.invert(t.invert([r.width / 2 + px, r.height / 2]));
-  return d3.geoDistance(a, b) * 6371000;
-}
-function longitudBarra(maxPx) {
-  const m = escalaMetros(maxPx), nice = [25, 50, 100, 200, 250, 500, 1000, 2000].filter(v => v <= m).pop() || 25;
-  return {px: maxPx * nice / m, m: nice};
-}
-function barraEscala() {
-  if (!proj) return;
-  const b = longitudBarra(110);
-  d3.select('#barra').style('width', b.px + 'px');
-  d3.select('#barra-txt').text(metros(b.m));
-}
-
-// Descarga de la vista actual: mapa + leyenda + barra de escala + norte + fuentes, como PNG
-function descargar() {
-  const css = getComputedStyle(document.documentElement), r = svg.node().getBoundingClientRect();
-  // el mapa se exporta a tamaño fijo (misma vista y proporción de la pantalla); la leyenda va en una columna a la derecha
-  const W0 = Math.round(r.width), H0 = Math.round(r.height), sc = W0 >= H0 ? 1100 / W0 : 860 / H0;
-  const W = Math.round(W0 * sc), H = Math.round(H0 * sc), LW = 300, FW = W + LW + 24;
-  const bg = css.getPropertyValue('--map').trim(), panel = css.getPropertyValue('--panel').trim(), fg = css.getPropertyValue('--fg').trim(), muted = css.getPropertyValue('--muted').trim(), line = css.getPropertyValue('--line').trim();
-  const NS = 'http://www.w3.org/2000/svg';
-  const out = d3.create('svg').attr('xmlns', NS).attr('font-family', 'Segoe UI, Arial, sans-serif');
-  // copia del mapa con los estilos calculados en línea (las clases no viajan a la imagen)
-  const copia = svg.node().cloneNode(true), orig = svg.node().querySelectorAll('*'), dup = copia.querySelectorAll('*');
-  const PROPS = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'opacity', 'font-size', 'display'];
-  orig.forEach((el, i) => { const cs = getComputedStyle(el); PROPS.forEach(pr => dup[i].style.setProperty(pr, cs.getPropertyValue(pr))); dup[i].removeAttribute('class'); });
-  dup.forEach(el => { if (el.tagName === 'title') el.remove(); });
-  // los rótulos de sector no deben crecer con la ampliación del mapa
-  orig.forEach((el, i) => { if (el.tagName === 'text') dup[i].style.setProperty('font-size', (parseFloat(getComputedStyle(el).fontSize) * 1.3 / sc) + 'px'); });
-  const top = 64;
-  const titulo = `${grupo.parte} · ${grupo.t}`;
-  const {titulo: lt, sub, items} = itemsLeyenda();
-  // fuentes (con ajuste de línea)
-  const envolver = (t, n) => { const w = t.split(' '), ls = []; let l = ''; w.forEach(p => { if ((l + ' ' + p).trim().length > n) { ls.push(l.trim()); l = p; } else l += ' ' + p; }); ls.push(l.trim()); return ls; };
-  const lineasF = FUENTES.flatMap(t => envolver('• ' + t, Math.floor(FW / 6.4)));
-  const pie = 30 + lineasF.length * 14 + 10;
-  const filas = items.filter(d => d.t !== 'sep'), LH = 46 + filas.length * 18 + (items.some(d => d.t === 'sep') ? 6 : 0);
-  const TH = top + Math.max(H, LH + 90) + pie;
-  out.attr('width', FW).attr('height', TH).attr('viewBox', `0 0 ${FW} ${TH}`);
-  out.append('rect').attr('width', FW).attr('height', TH).attr('fill', panel);
-  out.append('text').attr('x', 16).attr('y', 26).attr('font-size', 16).attr('font-weight', 700).attr('fill', fg).text(titulo);
-  out.append('text').attr('x', 16).attr('y', 46).attr('font-size', 12).attr('fill', muted)
-    .text(`${VARS[vsel].nom}${VARS[vsel].anual ? ' · ' + anio : ''}${sectorSel ? ' · Sector: ' + d3.select('#sector option:checked').text() : ''}${sel ? ' · Manzana ' + sel.properties.cod : ''} · La Candelaria y sectores vecinos, Bogotá`);
-  const mapa = out.append('g').attr('transform', `translate(0,${top})`);
-  mapa.append('rect').attr('width', W).attr('height', H).attr('fill', bg);
-  copia.removeAttribute('id'); copia.setAttribute('width', W); copia.setAttribute('height', H); copia.setAttribute('viewBox', `0 0 ${W0} ${H0}`); copia.style.removeProperty('cursor');
-  mapa.node().appendChild(copia);
-  mapa.append('rect').attr('width', W).attr('height', H).attr('fill', 'none').attr('stroke', line);
-  // leyenda (columna a la derecha del mapa)
-  const lg = out.append('g').attr('transform', `translate(${W + 12},${top})`);
-  lg.append('rect').attr('width', LW).attr('height', LH).attr('rx', 6).attr('fill', panel).attr('stroke', line);
-  lg.append('text').attr('x', 10).attr('y', 18).attr('font-size', 12).attr('font-weight', 700).attr('fill', fg).text(lt.length > 46 ? lt.slice(0, 45) + '…' : lt);
-  lg.append('text').attr('x', 10).attr('y', 34).attr('font-size', 10).attr('fill', muted).text(sub);
-  let yy = 44;
-  items.forEach(d => {
-    if (d.t === 'sep') { lg.append('line').attr('x1', 10).attr('x2', LW - 10).attr('y1', yy + 2).attr('y2', yy + 2).attr('stroke', line); yy += 6; return; }
-    dibujarIcono(lg, d, css, 10, yy);
-    lg.append('text').attr('x', 38).attr('y', yy + 11).attr('font-size', 10.5).attr('fill', fg).text(d.txt);
-    yy += 18;
+// ficha de la manzana elegida: valores de todas las variables en pantalla y notas de distancia
+function ficha() {
+  const F = d3.select('#ficha').property('hidden', !sel); F.selectAll('*').remove();
+  if (!sel) return;
+  const sp = sel.properties, vars = [...new Set(P.map(p => p.v))];
+  const h = F.append('h2'); h.append('span').text(`Manzana ${sp.cod} · ${sp.sector}`);
+  h.append('button').attr('type', 'button').attr('class', 'no-print').text('Quitar selección').on('click', () => { sel = null; P.forEach(seleccion); ficha(); });
+  const izq = F.append('div'), der = F.append('div').attr('class', 'notas');
+  const tb = izq.append('table');
+  const ex = VARS[vars[0]].capa === 'g' && sp.filtro === 'EXCLUIDA_SIN_POBLACION_RESIDENTE';
+  P.forEach(p => { const v = VARS[p.v], tr = tb.append('tr'); tr.append('td').text((p.rotulo ? p.rotulo + ' · ' : '') + v.nom + (v.anual ? ` ${anio}` : '')); tr.append('td').text(ex ? '—' : fmt(valor(sel, p.v), v.u)); });
+  if (ex) der.append('p').text('Manzana sin población residente (menos de 10 personas en 2018 y ningún predio residencial en 2025): no entra al índice de gentrificabilidad.');
+  if (sp.vref && vars.some(v => v === 'val' || v === 'var')) {
+    const tr = tb.append('tr'); tr.append('td').text('Valor del suelo 2018 → 2025'); tr.append('td').text(`${fmt(sp.vref['2018'], '$')} → ${fmt(sp.vref['2025'], '$')}`);
+    grafico(der, sp);
+  }
+  const c = d3.geoCentroid(sel);
+  vars.forEach(v => {
+    const def = VARS[v];
+    if (def.radio) {
+      let fs = D[def.radio].features; if (def.anios) fs = fs.filter(f => f.properties.anio >= def.anios[0] && f.properties.anio <= def.anios[1]);
+      const n = fs.filter(f => d3.geoDistance(c, f.geometry.coordinates) * 6371000 <= 300).length;
+      const txt = {licencias: 'licencias 2022–2025', turismo: 'alojamientos del IDT', lotes_educativos: 'lotes con uso educativo'}[def.radio];
+      der.append('p').html(`<b>${def.nom}:</b> en el círculo de 300 m (28,3 ha) hay ${n} ${txt}.` +
+        (def.radio === 'turismo' && sp.C2_n != null ? ` El índice cuenta ${sp.C2_n} establecimientos (vivienda turística + alojamientos); el mapa muestra solo los alojamientos del IDT.` : '') +
+        (def.radio === 'licencias' && sp.A2_n != null && sp.A2_n !== n ? ` El índice cuenta ${sp.A2_n} porque mide sobre los lotes de cada licencia.` : ''));
+    }
+    if (def.pts === 'estaciones_tm') {
+      const v1 = def.capa === 'v1', nom = v1 ? sp.tm_est : sp.C1_est, cam = v1 ? sp.tm_cam : sp.C1_cam, min = v1 ? sp.tm_min : sp.C1_min, recta = v1 ? sp.tm_recta : sp.C1_recta;
+      der.append('p').html(`<b>TransMilenio:</b> estación más cercana a pie, ${nom || 'sin dato'}: <b>${fmt(cam, 'm')}</b> caminando${min != null ? ` (unos ${min} min)` : ''}; ${fmt(recta, 'm')} en línea recta. La línea roja solo indica hacia dónde queda; el índice usa el recorrido por las calles.`);
+    }
+    if (def.planes) der.append('p').html(sp.C5_dentro ? `<b>Planes:</b> la manzana está dentro de ${sp.C5_dentro} (distancia 0).` : `<b>Planes:</b> el más cercano a pie es ${sp.C5_plan || 'sin dato'}: <b>${fmt(sp.C5_cam, 'm')}</b> caminando; ${fmt(sp.C5_recta, 'm')} en línea recta.`);
+    if (v === 'trat' && sp.trat_nom) der.append('p').html(`<b>Tratamiento dominante:</b> ${sp.trat_nom}.`);
   });
-  // barra de escala y norte
-  const b0 = longitudBarra(120 / sc), b = {px: b0.px * sc, m: b0.m}, sb = mapa.append('g').attr('transform', `translate(16,${H - 30})`);
-  sb.append('rect').attr('x', -6).attr('y', -14).attr('width', b.px + 70).attr('height', 26).attr('rx', 4).attr('fill', panel).attr('stroke', line);
-  sb.append('path').attr('d', `M0,0 v6 h${b.px} v-6`).attr('fill', 'none').attr('stroke', fg).attr('stroke-width', 1.4);
-  sb.append('text').attr('x', b.px + 8).attr('y', 7).attr('font-size', 11).attr('fill', fg).text(metros(b.m));
-  const nt = mapa.append('g').attr('transform', `translate(28,26)`);
-  nt.append('path').attr('d', 'M0,-14 L7,8 L0,3 L-7,8 Z').attr('fill', fg);
-  nt.append('text').attr('y', 22).attr('text-anchor', 'middle').attr('font-size', 11).attr('font-weight', 700).attr('fill', fg).text('N');
-  // pie: autores y fuentes
-  const pg = out.append('g').attr('transform', `translate(16,${top + Math.max(H, LH + 90) + 20})`);
-  pg.append('text').attr('font-size', 11).attr('font-weight', 700).attr('fill', fg).text(`${AUTORES} · ${INSTITUCION} · Trabajo de grado, 2026`);
-  lineasF.forEach((t, i) => pg.append('text').attr('y', 18 + i * 14).attr('font-size', 10).attr('fill', muted).text(t));
-  // a PNG (2x)
-  const txt = new XMLSerializer().serializeToString(out.node());
-  const img = new Image();
-  img.onload = () => {
-    const cv = document.createElement('canvas'); cv.width = FW * 2; cv.height = TH * 2;
-    const cx = cv.getContext('2d'); cx.scale(2, 2); cx.drawImage(img, 0, 0);
-    cv.toBlob(bl => {
-      const a = document.createElement('a'); a.href = URL.createObjectURL(bl);
-      a.download = `visor_candelaria_${grupo.id}_${vsel}${VARS[vsel].anual ? '_' + anio : ''}.png`;
-      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    }, 'image/png');
-  };
-  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(txt);
+  if (!der.selectAll('*').size()) der.append('p').attr('class', 'm').text('Pase el cursor por los puntos del mapa para ver su distancia a esta manzana.');
 }
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => D && dibujar());
+function grafico(cont, sp) {
+  const anios = d3.range(2017, 2026);
+  const med = anios.map(y => ({y, v: d3.median(D.unidades_v1.features, f => f.properties.vref ? f.properties.vref[String(y)] : undefined)})).filter(d => d.v != null);
+  const mz = anios.map(y => ({y, v: sp.vref[String(y)]})).filter(d => d.v != null);
+  const W = 320, H = 120, m = {l: 44, r: 8, t: 8, b: 18};
+  const x = d3.scaleLinear().domain([2017, 2025]).range([m.l, W - m.r]), y = d3.scaleLinear().domain([0, d3.max([...med, ...mz], d => d.v) * 1.08]).nice(4).range([H - m.b, m.t]);
+  cont.append('p').attr('class', 'm').text('Valor de referencia del suelo por m², 2017–2025: la manzana (rojo) frente a la mediana de las 203 (gris).');
+  const S = cont.append('svg').attr('viewBox', `0 0 ${W} ${H}`).style('width', '100%').style('max-width', '360px').style('display', 'block');
+  S.append('g').selectAll('line').data(y.ticks(4)).join('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y).attr('y2', y).attr('stroke', '#d9dcd6');
+  S.append('g').selectAll('text').data(y.ticks(4)).join('text').attr('x', m.l - 4).attr('y', d => y(d) + 3).attr('text-anchor', 'end').attr('font-size', 9).attr('fill', '#5d6b75')
+    .text(d => d === 0 ? '$0' : d >= 1e6 ? `$${d3.format('.1~f')(d / 1e6).replace('.', ',')} M` : `$${Math.round(d / 1e3)} mil`);
+  S.append('g').selectAll('text').data([2017, 2019, 2021, 2023, 2025]).join('text').attr('x', x).attr('y', H - 5).attr('text-anchor', 'middle').attr('font-size', 9).attr('fill', '#5d6b75').text(d => d);
+  S.append('line').attr('x1', x(anio)).attr('x2', x(anio)).attr('y1', m.t).attr('y2', H - m.b).attr('stroke', '#5d6b75').attr('stroke-dasharray', '2 2');
+  const linea = d3.line().x(d => x(d.y)).y(d => y(d.v));
+  [[med, '#8a96a3'], [mz, '#d1352b']].forEach(([d, c]) => {
+    S.append('path').attr('d', linea(d)).attr('fill', 'none').attr('stroke', c).attr('stroke-width', 2);
+    S.append('g').selectAll('circle').data(d).join('circle').attr('cx', q => x(q.y)).attr('cy', q => y(q.v)).attr('r', 3).attr('fill', c).attr('stroke', '#fff')
+      .append('title').text(q => `${q.y}: ${fmt(q.v, '$')} por m²`);
+  });
+}
 
-FUENTES.forEach(t => d3.select('#lista-fuentes').append('li').text(t));
-if (window.DATOS) { D = window.DATOS; iniciar(); }
-else d3.select('#titulo').text('No se pudieron cargar los datos del visor');
+// Descarga: captura del encabezado, los mapas y la ficha, más un pie con autores y fuentes
+async function descargar() {
+  const btn = d3.select('#descargar').text('Preparando…').attr('disabled', true);
+  try {
+    // html2canvas no aplica el filtro CSS: las teselas se pasan a gris a mano en la copia que captura
+    const grises = (doc) => {
+      const orig = document.querySelectorAll('img.leaflet-tile'), copia = doc.querySelectorAll('img.leaflet-tile');
+      orig.forEach((im, i) => { if (!im.complete || !im.naturalWidth) return; try {
+        const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+        const cx = c.getContext('2d'); cx.filter = 'grayscale(1) brightness(1.07) contrast(.92)'; cx.drawImage(im, 0, 0); copia[i].src = c.toDataURL();
+      } catch (e) {} });
+    };
+    const cv = await html2canvas(document.getElementById('captura'), {useCORS: true, scale: 2, backgroundColor: '#f4f3ef', logging: false, onclone: grises,
+      ignoreElements: el => el.classList && el.classList.contains('no-print')});
+    const esc = 2, W = cv.width, lineas = [`${AUTORES} · Universidad Distrital Francisco José de Caldas · Ingeniería Catastral y Geodesia · Trabajo de grado, 2026`, ...FUENTES.map(t => '• ' + t)];
+    const out = document.createElement('canvas'); out.width = W; out.height = cv.height + (lineas.length * 16 + 28) * esc;
+    const cx = out.getContext('2d'); cx.fillStyle = '#ffffff'; cx.fillRect(0, 0, out.width, out.height); cx.drawImage(cv, 0, 0);
+    cx.fillStyle = '#1e2a33'; cx.font = `bold ${11 * esc}px Public Sans, Segoe UI, sans-serif`;
+    lineas.forEach((t, i) => { if (i === 1) { cx.font = `${10 * esc}px Public Sans, Segoe UI, sans-serif`; cx.fillStyle = '#5d6b75'; } cx.fillText(t, 16 * esc, cv.height + (18 + i * 16) * esc, W - 32 * esc); });
+    const a = document.createElement('a'); a.download = `visor_candelaria_${location.hash.slice(1) || grupo.id}.png`;
+    a.href = out.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
+  } catch (e) { alert('No se pudo generar la imagen: ' + e.message); }
+  btn.text('Descargar PNG').attr('disabled', null);
+}
+
+if (window.DATOS) iniciar(); else d3.select('#h-dim').text('No se pudieron cargar los datos del visor.');
 </script>
 </body>
 </html>
