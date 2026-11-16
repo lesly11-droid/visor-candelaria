@@ -150,7 +150,7 @@ const VARS = {
   trat:  {capa: 'v1', campo: 'trat', nom: 'Norma (tratamiento urbanístico)', u: '', d: 'Qué tanto permite transformar la norma del POT: 0 = conservación, 1 = renovación urbana.'},
   lic:   {capa: 'v1', campo: 'lic', nom: 'Licencias urbanísticas 2018–2025', u: 'por ha', pts: 'licencias', d: 'Licencias aprobadas entre 2018 y 2025 por hectárea de manzana. Cada punto es una licencia.'},
   bic:   {capa: 'v1', campo: 'bic', nom: 'Patrimonio (BIC)', u: 'por ha', pts: 'bic', d: 'Bienes de interés cultural por hectárea de manzana. Cada punto es un inmueble BIC.'},
-  A1:    {capa: 'g', campo: 'A1', nom: 'Brecha de valor del suelo', u: '%', d: 'Cuánto más valdría el suelo con el mejor uso que permite la norma frente a su valor catastral actual. Variable en cálculo.'},
+  A1:    {capa: 'g', campo: 'A1', nom: 'Brecha de valor del suelo', u: '%', d: 'Cuánto más vale el suelo comparable mejor aprovechado del entorno (misma norma, a 500 m) que el de esta manzana: (potencial − actual) / actual, con el valor de referencia del suelo 2025. 0 % = la manzana ya está en el tope de su norma.'},
   A2:    {capa: 'g', campo: 'A2', nom: 'Licencias recientes (300 m)', u: 'por ha', radio: 'licencias', anios: [2022, 2025], pts: 'licencias', d: 'Licencias aprobadas entre 2022 y 2025 a menos de 300 m del centro de la manzana, por hectárea.'},
   B1:    {capa: 'g', campo: 'B1', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018): menor capacidad de enfrentar alzas de arriendo o impuestos.'},
   B2:    {capa: 'g', campo: 'B2', nom: 'Sin educación superior', u: '%', d: '% de residentes sin educación superior (Censo 2018).'},
@@ -162,7 +162,7 @@ const VARS = {
 };
 const DIMS = {
   ECO: ['Económica', ['val', 'var']], SOC: ['Sociodemográfica', ['p2039', 'p60', 'psup']], FUN: ['Funcional', ['tm1', 'otros', 'tur']], FIS: ['Físico-urbana', ['trat', 'lic', 'bic']],
-  INC: ['Incentivo económico', ['A2', 'A1']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']], ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
+  INC: ['Incentivo económico', ['A1', 'A2']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']], ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
 };
 const PARTES = {
   V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria', capa: 'v1',
@@ -176,15 +176,15 @@ const GRUPOS = [
   {id: 'soc', parte: 'V1', t: 'Dimensión SOC · Sociodemográfica', vars: ['p2039', 'p60', 'psup']},
   {id: 'fun', parte: 'V1', t: 'Dimensión FUN · Funcional', vars: ['tm1', 'otros', 'tur']},
   {id: 'fis', parte: 'V1', t: 'Dimensión FIS · Físico-urbana', vars: ['trat', 'lic', 'bic']},
-  {id: 'p2dim', parte: 'G', t: 'Comparación entre dimensiones', dims: ['INC', 'VUL', 'ATR']},
-  {id: 'inc', parte: 'G', t: 'Dimensión INC · Incentivo económico', vars: ['A2', 'A1']},
+  {id: 'p2dim', parte: 'G', t: 'Comparación entre dimensiones', dims: ['INC', 'VUL', 'ATR']},   // INC abre con A1 (brecha)
+  {id: 'inc', parte: 'G', t: 'Dimensión INC · Incentivo económico', vars: ['A1', 'A2']},
   {id: 'vul', parte: 'G', t: 'Dimensión VUL · Vulnerabilidad', vars: ['B1', 'B2', 'B3']},
   {id: 'atr', parte: 'G', t: 'Dimensión ATR · Atractivo del entorno', vars: ['C1', 'C2', 'C4', 'C5']},
 ];
 const NOTAS = {   // aclaraciones que acompañan a algunas comparaciones de la encuesta
   'val|var': 'A mide el <b>nivel</b>: qué tan cara está hoy la manzana (puede serlo desde antes de 2018). B mide el <b>cambio</b>: qué tan rápido se revalorizó entre 2018 y 2025.',
   'lic|bic': 'No son redundantes: las licencias miden la transformación física ya tramitada; los BIC, el patrimonio protegido, que atrae pero también limita lo que se puede construir.',
-  'A1|A2': 'La brecha mide la ganancia posible en la propia manzana; las licencias recientes, la inversión que ya llega al entorno. La brecha está en cálculo.',
+  'A1|A2': 'La brecha mide la ganancia posible en la propia manzana (cuánto más vale el suelo comparable mejor aprovechado, bajo la misma norma); las licencias recientes, la inversión que ya llega al entorno (300 m).',
 };
 
 let D, P = [], sel = null, sectorSel = '', anio = 2025, grupo = null, pregunta = null, sincronizando = false;
@@ -257,7 +257,7 @@ function construir(hash) {
       .html('<span>Año</span><input type="range" min="2017" max="2025" step="1"><b class="anio-txt"></b>');
     art.append('div').attr('class', 'leyenda');
     art.append('div').attr('class', 'capas no-print');
-    const p = {i, el: art, rotulo: df.rotulo, dim: df.dim, vars: df.vars, v: df.vars.find(k => k !== 'A1') || df.vars[0], puntosOn: true};
+    const p = {i, el: art, rotulo: df.rotulo, dim: df.dim, vars: df.vars, v: df.vars[0], puntosOn: true};
     p.map = L.map(mapa.node(), {zoomControl: true, attributionControl: true, zoomSnap: .5, preferCanvas: false});
     p.map.attributionControl.setPrefix('');
     // mapa base: OpenStreetMap estándar, en gris (CSS) para que no compita con los colores de las manzanas
@@ -457,6 +457,10 @@ function ficha() {
     }
     if (def.planes) der.append('p').html(sp.C5_dentro ? `<b>Planes:</b> la manzana está dentro de ${sp.C5_dentro} (distancia 0).` : `<b>Planes:</b> el más cercano a pie es ${sp.C5_plan || 'sin dato'}: <b>${fmt(sp.C5_cam, 'm')}</b> caminando; ${fmt(sp.C5_recta, 'm')} en línea recta.`);
     if (v === 'trat' && sp.trat_nom) der.append('p').html(`<b>Tratamiento dominante:</b> ${sp.trat_nom}.`);
+    if (v === 'A1') der.append('p').html(sp.A1 == null
+      ? `<b>Brecha de valor del suelo:</b> sin valor de referencia del suelo en 2025; no se calcula.`
+      : `<b>Brecha de valor del suelo:</b> el suelo de esta manzana vale <b>${fmt(sp.A1_vas, '$')}</b> por m² (referencia UAECD 2025). Las ${sp.A1_n} manzanas comparables (${sp.A1_norma}, a ${sp.A1_r} m) alcanzan <b>${fmt(sp.A1_vp, '$')}</b> por m² en su percentil 90: brecha de <b>${fmt(sp.A1, '%')}</b>.`
+        + (sp.A1_ic != null && sp.A1_icp != null ? ` Intensidad construida: ${fmt(sp.A1_ic, '')} m² construidos por m² de terreno, frente a ${fmt(sp.A1_icp, '')} en las comparables.` : ''));
   });
   if (!der.selectAll('*').size()) der.append('p').attr('class', 'm').text('Pase el cursor por los puntos del mapa para ver su distancia a esta manzana.');
 }
