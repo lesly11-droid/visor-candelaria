@@ -81,6 +81,9 @@ footer ul { margin: 4px 0 0; padding-left: 18px; }
 .leaflet-tooltip.tt b { font-weight: 700; }
 .leaflet-control-attribution { font-size: 9px; }
 .leaflet-tile-pane { filter: grayscale(1) brightness(1.07) contrast(.92); }
+.leaflet-pane.pane-etiquetas { pointer-events: none; }
+.leaflet-tooltip.et-plan { background: rgba(255,255,255,.85); border: 1px solid #9e4a1f; color: #7a2e0e; font-weight: 600; font-size: .72rem; padding: 2px 5px; box-shadow: none; }
+.leaflet-tooltip.et-plan::before { display: none; }
 @media (max-width: 900px) {
   .cuadricula { grid-template-columns: 1fr; }
   .mapa { height: 52vh; }
@@ -145,12 +148,12 @@ const VARS = {
   p60:   {capa: 'v1', campo: 'p60', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018). Más proporción se lee como permanencia de la población tradicional.'},
   psup:  {capa: 'v1', campo: 'psup', nom: 'Con educación superior', u: '%', d: '% de residentes con educación técnica, tecnológica, universitaria o de posgrado (Censo 2018).'},
   tm1:   {capa: 'v1', campo: 'tm_cam', alt: 'tm_recta', nom: 'Cercanía a TransMilenio', u: 'm', s: -1, pts: 'estaciones_tm', d: 'Distancia caminando por las calles hasta la estación de TransMilenio más cercana (OSRM peatonal).'},
-  otros: {capa: 'v1', campo: 'otros', nom: 'Vivienda convertida en otros usos', u: '%', d: '% de predios que eran vivienda en 2018 y en 2025 figuran como comercio, servicios o uso educativo.'},
+  otros: {capa: 'v1', campo: 'otros', nom: 'Vivienda convertida en otros usos', u: '%', d: '% de predios que eran vivienda en 2018 y en 2025 figuran como comercio, servicios o uso educativo. Al pasar el cursor o elegir la manzana se indica su uso predominante en 2025.'},
   tur:   {capa: 'v1', campo: 'tur', nom: 'Oferta turística en la manzana', u: 'por ha', pts: 'turismo', d: 'Vivienda turística y alojamientos por hectárea dentro de la propia manzana.'},
   trat:  {capa: 'v1', campo: 'trat', nom: 'Norma (tratamiento urbanístico)', u: '', d: 'Qué tanto permite transformar la norma del POT: 0 = conservación, 1 = renovación urbana.'},
   lic:   {capa: 'v1', campo: 'lic', nom: 'Licencias urbanísticas 2018–2025', u: 'por ha', pts: 'licencias', d: 'Licencias aprobadas entre 2018 y 2025 por hectárea de manzana. Cada punto es una licencia.'},
   bic:   {capa: 'v1', campo: 'bic', nom: 'Patrimonio (BIC)', u: 'por ha', pts: 'bic', d: 'Bienes de interés cultural por hectárea de manzana. Cada punto es un inmueble BIC.'},
-  A1:    {capa: 'g', campo: 'A1', nom: 'Brecha de valor del suelo', u: '%', d: 'Cuánto más vale el suelo comparable mejor aprovechado del entorno (misma norma, a 500 m) que el de esta manzana: (potencial − actual) / actual, con el valor de referencia del suelo 2025. 0 % = la manzana ya está en el tope de su norma.'},
+  A1:    {capa: 'g', campo: 'A1', nom: 'Brecha de valor del suelo (brecha de renta)', u: '%', d: 'Cuánto más vale el suelo comparable mejor aprovechado del entorno (misma norma, a 500 m) que el de esta manzana: (potencial − actual) / actual, con el valor de referencia del suelo 2025. 0 % = la manzana ya está en el tope de su norma.'},
   A2:    {capa: 'g', campo: 'A2', nom: 'Licencias recientes (300 m)', u: 'por ha', radio: 'licencias', anios: [2022, 2025], pts: 'licencias', d: 'Licencias aprobadas entre 2022 y 2025 a menos de 300 m del centro de la manzana, por hectárea.'},
   B1:    {capa: 'g', campo: 'B1', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018): menor capacidad de enfrentar alzas de arriendo o impuestos.'},
   B2:    {capa: 'g', campo: 'B2', nom: 'Sin educación superior', u: '%', d: '% de residentes sin educación superior (Censo 2018).'},
@@ -165,9 +168,9 @@ const DIMS = {
   INC: ['Incentivo económico', ['A1', 'A2']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']], ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
 };
 const PARTES = {
-  V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria', capa: 'v1',
+  V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria; en gris, sin población residente', capa: 'v1',
        q: '¿Cuál de los dos pesa más como <b>evidencia de que la gentrificación avanzó</b> en la manzana entre 2018 y 2025, y cuánto más?'},
-  G:  {chip: 'PARTE 2', nom: 'Índice de gentrificabilidad', ambito: '¿Qué condiciones actuales favorecen un mayor avance (2025–2026)? · 418 manzanas de La Candelaria y 6 sectores vecinos; en gris, sin población residente', capa: 'g',
+  G:  {chip: 'PARTE 2', nom: 'Índice de gentrificabilidad', ambito: '¿Qué condiciones actuales favorecen un mayor avance (2025–2026)? · 418 manzanas de La Candelaria y 6 sectores vecinos; en gris, sin población residente (322 entran al índice)', capa: 'g',
        q: '¿Cuál de los dos pesa más como <b>condición que podría favorecer un mayor avance</b> de la gentrificación (2025–2026), y cuánto más?'},
 };
 const GRUPOS = [
@@ -264,6 +267,8 @@ function construir(hash) {
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© colaboradores de OpenStreetMap', maxZoom: 19, crossOrigin: 'anonymous'}).addTo(p.map);
     L.control.scale({imperial: false, position: 'bottomleft'}).addTo(p.map);
     p.map.on('move', () => sincronizar(p));
+    // orden de dibujo: planes debajo de las manzanas; puntos, selección y etiquetas por encima de todo
+    [['planes', 390], ['puntos', 650], ['sel', 660], ['etiquetas', 670]].forEach(([n, z]) => { const pn = p.map.createPane(n); pn.style.zIndex = z; pn.classList.add('pane-' + n); });
     p.capaSec = L.geoJSON(D.sectores, {style: {color: '#3a4856', weight: 1.3, opacity: .7, fill: false, dashArray: null}, interactive: false}).addTo(p.map);
     p.capaPl = L.layerGroup().addTo(p.map); p.capaPts = L.layerGroup().addTo(p.map); p.capaSel = L.layerGroup().addTo(p.map);
     p.capaMz = null;
@@ -293,17 +298,53 @@ function encuadrar(inicial) {
 
 const valor = (f, v) => { const p = f.properties, def = VARS[v]; if (def.anual) return p.vref ? (p.vref[String(anio)] ?? null) : null;
   let x = p[def.campo]; if ((x == null || x === '') && def.alt) x = p[def.alt]; return x == null || x === '' ? null : +x; };
-const excluida = (f, v) => VARS[v].capa === 'g' && f.properties.filtro === 'EXCLUIDA_SIN_POBLACION_RESIDENTE';
+const excluida = (f, v) => (f.properties.filtro || '').startsWith('EXCLUIDA');
+const fuera = f => f.properties.sector === '';   // unidad del índice de gentrificación fuera de los 7 sectores catastrales
 const enSector = f => !sectorSel || f.properties.cod.startsWith(sectorSel);
+
+// Cortes naturales de Jenks (minimiza la varianza dentro de cada clase) sobre valores ordenados; devuelve k-1 cortes
+function jenks(vals, k) {
+  const n = vals.length;
+  if (n <= k) return vals.slice(1);
+  const lc = Array.from({length: n + 1}, () => new Array(k + 1).fill(0));
+  const lv = Array.from({length: n + 1}, () => new Array(k + 1).fill(Infinity));
+  for (let j = 1; j <= k; j++) { lc[1][j] = 1; lv[1][j] = 0; }
+  for (let l = 2; l <= n; l++) {
+    let s1 = 0, s2 = 0, w = 0;
+    for (let m = 1; m <= l; m++) {
+      const i3 = l - m + 1, v = vals[i3 - 1];
+      w++; s1 += v; s2 += v * v;
+      const vv = s2 - (s1 * s1) / w, i4 = i3 - 1;
+      if (i4 !== 0) for (let j = 2; j <= k; j++) if (lv[l][j] >= vv + lv[i4][j - 1]) { lc[l][j] = i3; lv[l][j] = vv + lv[i4][j - 1]; }
+    }
+    lc[l][1] = 1; lv[l][1] = s2 - (s1 * s1) / w;
+  }
+  const cortes = []; let kk = n;
+  for (let j = k; j >= 2; j--) { const id = lc[kk][j] - 1; cortes.unshift(vals[id]); kk = lc[kk][j] - 1; }
+  return cortes;
+}
+// redondeo «bonito» de un corte (2 cifras significativas) sin salirse del rango de los datos
+function redondear(c) { if (c === 0) return 0; const e = Math.pow(10, Math.floor(Math.log10(Math.abs(c))) - 1); return Math.round(c / e) * e; }
 
 function escala(p) {
   const def = VARS[p.v], capa = D[def.capa === 'v1' ? 'unidades_v1' : 'manzanas'];
-  const vals = capa.features.map(f => valor(f, p.v)).filter(x => x != null && !isNaN(x)).sort(d3.ascending);
+  const vals = capa.features.filter(f => !excluida(f, p.v)).map(f => valor(f, p.v)).filter(x => x != null && !isNaN(x)).sort(d3.ascending);
   if (!vals.length) return {n: 0};
-  let cortes = [...new Set(d3.range(1, 5).map(i => +d3.quantile(vals, i / 5).toFixed(2)))].filter(c => c > vals[0] && c < vals[vals.length - 1]);
+  const min = vals[0], max = vals[vals.length - 1];
+  let cortes = jenks(vals, 5);
+  // una clase con muy pocas manzanas (atípicos) se funde con su vecina, para que la leyenda no tenga rangos casi vacíos
+  const minimo = Math.max(3, Math.round(0.03 * vals.length));
+  for (let it = 0; it < 4 && cortes.length > 2; it++) {
+    const lims = [-Infinity, ...cortes, Infinity];
+    const cnt = lims.slice(0, -1).map((a, i) => vals.filter(v => v > a && v <= lims[i + 1]).length);
+    const k = cnt.indexOf(Math.min(...cnt));
+    if (cnt[k] >= minimo) break;
+    cortes.splice(k === 0 ? 0 : k === cnt.length - 1 ? k - 1 : (cnt[k - 1] < cnt[k + 1] ? k - 1 : k), 1);
+  }
+  cortes = [...new Set(cortes.map(redondear))].filter(c => c > min && c < max).sort(d3.ascending);
   const ramp = RAMPA[def.capa].slice(0, cortes.length + 1);
   const colores = def.s === -1 ? ramp.slice().reverse() : ramp;
-  return {n: vals.length, min: vals[0], max: vals[vals.length - 1], cortes, esc: d3.scaleThreshold().domain(cortes).range(colores), capa};
+  return {n: vals.length, min, max, cortes, esc: d3.scaleThreshold().domain(cortes).range(colores), capa};
 }
 
 function pintar(p) {
@@ -318,31 +359,46 @@ function pintar(p) {
   p.el.select('.anio input').property('value', anio);
   p.el.select('.sin-datos').property('hidden', E.n > 0).text(E.n ? '' : 'Esta variable todavía está en cálculo: el mapa no tiene datos.');
   const estilo = f => {
-    const x = valor(f, p.v), ex = excluida(f, p.v);
-    return {color: '#ffffff', weight: .6, opacity: .9, fillColor: ex ? '#cfd2cc' : x == null || !E.esc ? '#ffffff' : E.esc(x),
-            fillOpacity: !enSector(f) ? .12 : ex ? .85 : x == null ? .25 : .82, dashArray: x == null && !ex ? '3 3' : null};
+    const x = valor(f, p.v), ex = excluida(f, p.v), fu = fuera(f);
+    return {color: fu ? '#5d6b75' : '#ffffff', weight: fu ? 1 : .6, opacity: .9, dashArray: fu ? '4 3' : (x == null && !ex ? '3 3' : null),
+            fillColor: ex ? '#cfd2cc' : x == null || !E.esc ? '#ffffff' : E.esc(x),
+            fillOpacity: !enSector(f) ? .12 : ex ? .85 : x == null ? .25 : (fu ? .5 : .82)};
   };
+  p.estilo = estilo;
   if (!p.capaMz || p.capaNom !== capaNom) {
     if (p.capaMz) p.capaMz.remove();
     p.capaNom = capaNom;
     p.capaMz = L.geoJSON(D[capaNom], {style: estilo, onEachFeature: (f, l) => {
-      l.bindTooltip(() => `<b>${f.properties.sector}</b> · manzana ${f.properties.cod}<br>${VARS[p.v].nom}: ${excluida(f, p.v) ? 'sin población residente (fuera del índice)' : fmt(valor(f, p.v), VARS[p.v].u)}`, {sticky: true, className: 'tt'});
+      l.bindTooltip(() => textoManzana(f, p), {sticky: true, className: 'tt'});
       l.on('click', () => { sel = f; P.forEach(seleccion); ficha(); });
     }}).addTo(p.map);
     p.capaMz.bringToBack();
   } else p.capaMz.setStyle(estilo);
+  p.capaMz.options.style = estilo;   // para que la selección repinte con la variable actual, no con la primera
   leyenda(p); puntos(p); planes(p); seleccion(p);
 }
+
+// texto emergente de una manzana: valor de la variable, uso 2025 cuando interesa y plan en el que está
+function textoManzana(f, p) {
+  const pr = f.properties, def = VARS[p.v];
+  let t = `<b>${pr.sector || 'Fuera de los 7 sectores catastrales'}</b> · manzana ${pr.cod}<br>${def.nom}: ${excluida(f, p.v) ? 'sin población residente (fuera del índice)' : fmt(valor(f, p.v), def.u)}`;
+  if (p.v === 'otros' && pr.uso25) t += `<br>Uso predominante 2025: ${pr.uso25}`;
+  if (excluida(f, p.v) && pr.uso25) t += `<br>Uso predominante 2025: ${pr.uso25}`;
+  if (pr.C5_dentro && (def.planes || ['atr', 'p2dim', 'inc'].includes(grupo.id))) t += `<br>Dentro de: <b>${pr.C5_dentro}</b> (distancia 0)`;
+  return t;
+}
+const fmtClase = (x, def) => def.u === '$' ? (x >= 1e6 ? `$${fmt(x / 1e6, '')} millones` : fmt(x, '$')) : fmt(x, def.u);
 
 function leyenda(p) {
   const def = VARS[p.v], E = p.E, L0 = p.el.select('.leyenda'); L0.selectAll('*').remove();
   const titulo = def.nom + (def.anual ? ` ${anio}` : '') + (def.u === '$' ? ' ($ por m²)' : def.u ? ` (${def.u})` : '');
   L0.append('div').attr('class', 'tit').text(titulo);
   if (!E.n) { L0.append('div').attr('class', 'nota').text('Sin datos todavía.'); return; }
-  L0.append('div').attr('class', 'nota').text((def.s === -1 ? 'Más oscuro = más cerca' : 'Más oscuro = valor más alto') + ' · clases por quintiles');
+  L0.append('div').attr('class', 'nota').text((def.s === -1 ? 'Más oscuro = más cerca' : 'Más oscuro = valor más alto') + ' · clases por cortes naturales (Jenks)');
   const lims = [E.min, ...E.cortes, E.max];
-  E.esc.range().forEach((c, i) => fila(L0, 'sw', c, lims[i] === lims[i + 1] ? fmt(lims[i], def.u) : `${fmt(lims[i], def.u)} – ${fmt(lims[i + 1], def.u)}`));
-  if (def.capa === 'g') fila(L0, 'sw', '#cfd2cc', 'Sin población residente (fuera del índice)');
+  E.esc.range().forEach((c, i) => fila(L0, 'sw', c, lims[i] === lims[i + 1] ? fmtClase(lims[i], def) : `${fmtClase(lims[i], def)} – ${fmtClase(lims[i + 1], def)}`));
+  fila(L0, 'sw', '#cfd2cc', 'Sin población residente (fuera del índice)');
+  if (def.capa === 'v1') fila(L0, 'fuera', '#5d6b75', 'Unidad fuera de los 7 sectores catastrales (límite de la localidad)');
   if (def.pts && p.puntosOn) fila(L0, def.pts === 'lotes_educativos' ? 'lote' : 'punto', PUNTOS[def.pts][1], PUNTOS[def.pts][0] + (def.anios ? ` (${def.anios[0]}–${def.anios[1]})` : ''));
   if (def.planes) fila(L0, 'plan', '#9e4a1f', 'Plan parcial vigente o Proyecto Ministerios');
   if (def.radio) fila(L0, 'radio', '#d1352b', 'Radio de 300 m (al elegir una manzana)');
@@ -357,6 +413,7 @@ function fila(L0, t, c, txt) {
   else if (t === 'plan') s.append('rect').attr('x', 1).attr('y', 1).attr('width', 22).attr('height', 12).attr('fill', c).attr('fill-opacity', .15).attr('stroke', c).attr('stroke-width', 1.5).attr('stroke-dasharray', '4 2');
   else if (t === 'radio') s.append('circle').attr('cx', 12).attr('cy', 7).attr('r', 6).attr('fill', c).attr('fill-opacity', .1).attr('stroke', c).attr('stroke-width', 1.5);
   else if (t === 'linea') s.append('line').attr('x1', 1).attr('x2', 23).attr('y1', 7).attr('y2', 7).attr('stroke', c).attr('stroke-width', 2).attr('stroke-dasharray', '4 3');
+  else if (t === 'fuera') s.append('rect').attr('x', 1).attr('y', 1).attr('width', 22).attr('height', 12).attr('fill', '#b4d2e3').attr('fill-opacity', .5).attr('stroke', c).attr('stroke-width', 1.2).attr('stroke-dasharray', '3 2');
   else if (t === 'sector') s.append('line').attr('x1', 1).attr('x2', 23).attr('y1', 7).attr('y2', 7).attr('stroke', c).attr('stroke-width', 1.5);
   f.append('span').text(txt);
 }
@@ -373,16 +430,21 @@ function puntos(p) {
   if (def.anios) fs = fs.filter(f => f.properties.anio >= def.anios[0] && f.properties.anio <= def.anios[1]);
   fs.forEach(f => {
     const capa = f.geometry.type === 'Point'
-      ? L.circleMarker([f.geometry.coordinates[1], f.geometry.coordinates[0]], {radius: k === 'bic' ? 3 : 4.5, color: '#fff', weight: 1, fillColor: col, fillOpacity: .95})
-      : L.geoJSON(f, {style: {color: col, weight: 1.5, fillColor: col, fillOpacity: .45}});
+      ? L.circleMarker([f.geometry.coordinates[1], f.geometry.coordinates[0]], {pane: 'puntos', radius: k === 'bic' ? 3 : 4.5, color: '#fff', weight: 1, fillColor: col, fillOpacity: .95})
+      : L.geoJSON(f, {pane: 'puntos', style: {color: col, weight: 1.5, fillColor: col, fillOpacity: .45}});
     capa.bindTooltip(() => textoPunto(f, k, p), {className: 'tt', direction: 'top', sticky: f.geometry.type !== 'Point'}).addTo(p.capaPts);
   });
 }
 function planes(p) {
   p.capaPl.clearLayers();
-  if (!VARS[p.v].planes) return;
-  L.geoJSON(D.planes, {style: {color: '#9e4a1f', weight: 2, dashArray: '6 3', fillColor: '#9e4a1f', fillOpacity: .12},
-    onEachFeature: (f, l) => l.bindTooltip(() => textoPlan(f), {sticky: true, className: 'tt'})}).addTo(p.capaPl);
+  if (!(VARS[p.v].planes || ['atr', 'p2dim', 'inc'].includes(grupo.id))) return;
+  // los planes van debajo de las manzanas (se consultan desde la manzana) y llevan su nombre encima de todo
+  L.geoJSON(D.planes, {pane: 'planes', style: {color: '#9e4a1f', weight: 2.2, dashArray: '6 3', fillColor: '#9e4a1f', fillOpacity: .10}, interactive: false}).addTo(p.capaPl);
+  D.planes.features.forEach(f => {
+    const c = d3.geoCentroid(f);
+    L.tooltip({pane: 'etiquetas', permanent: true, direction: 'center', className: 'et-plan', interactive: false}).setLatLng([c[1], c[0]])
+      .setContent(f.properties.n.replace('Proyecto Ministerios', 'Ministerios')).addTo(p.capaPl);
+  });
 }
 function seleccion(p) {
   p.capaSel.clearLayers();
@@ -392,10 +454,10 @@ function seleccion(p) {
   if (!sel) return;
   const def = VARS[p.v], sp = sel.properties, c = d3.geoCentroid(sel), ll = [c[1], c[0]];
   p.capaMz.eachLayer(l => { if (l.feature.properties.cod === sp.cod) { l.setStyle(ESTILO_SEL); l.bringToFront(); } });
-  if (def.radio) L.circle(ll, {radius: 300, color: '#d1352b', weight: 2, fillColor: '#d1352b', fillOpacity: .07, interactive: false}).addTo(p.capaSel);
+  if (def.radio) L.circle(ll, {pane: 'sel', radius: 300, color: '#d1352b', weight: 2, fillColor: '#d1352b', fillOpacity: .07, interactive: false}).addTo(p.capaSel);
   if (def.pts === 'estaciones_tm') {
     const nom = def.capa === 'v1' ? sp.tm_est : sp.C1_est, est = D.estaciones_tm.features.find(f => f.properties.n === nom);
-    if (est) L.polyline([ll, [est.geometry.coordinates[1], est.geometry.coordinates[0]]], {color: '#d1352b', weight: 2, dashArray: '5 4', interactive: false}).addTo(p.capaSel);
+    if (est) L.polyline([ll, [est.geometry.coordinates[1], est.geometry.coordinates[0]]], {pane: 'sel', color: '#d1352b', weight: 2, dashArray: '5 4', interactive: false}).addTo(p.capaSel);
   }
 }
 
@@ -403,15 +465,14 @@ function seleccion(p) {
 function textoPunto(f, k, p) {
   const pr = f.properties, def = VARS[p.v];
   let t = `<b>${PUNTOS[k][0]}</b>` + (pr.n ? `: ${pr.n}` : '') + (pr.anio ? ` · ${pr.anio}` : '') + (pr.t && k !== 'licencias' ? ` · ${pr.t}` : '');
-  if (!sel) return t + '<br><span style="color:#5d6b75">Elija una manzana para ver la distancia hasta aquí.</span>';
+  if (!sel) return t;
   const sp = sel.properties, recta = d3.geoDistance(d3.geoCentroid(sel), coord(f)) * 6371000;
-  t += `<br>Desde la manzana ${sp.cod}: <b>${metros(recta)}</b> en línea recta`;
   if (k === 'estaciones_tm') {
     const est = def.capa === 'v1' ? sp.tm_est : sp.C1_est, cam = def.capa === 'v1' ? sp.tm_cam : sp.C1_cam, min = def.capa === 'v1' ? sp.tm_min : sp.C1_min;
+    t += `<br>Desde la manzana ${sp.cod}: <b>${metros(recta)}</b> en línea recta`;
     t += pr.n === est && cam != null ? `<br>Caminando por las calles: <b>${metros(cam)}</b> (unos ${min} min). Es la estación más cercana a pie.`
       : '<br><span style="color:#5d6b75">La distancia caminando se calculó solo hasta la estación más cercana.</span>';
-  }
-  if (def.radio === k) t += recta <= 300 ? '<br>Dentro del radio de 300 m.' : '<br>Fuera del radio de 300 m.';
+  } else if (def.radio === k) t += recta <= 300 ? `<br>Dentro del radio de 300 m de la manzana ${sp.cod}.` : `<br>Fuera del radio de 300 m de la manzana ${sp.cod}.`;
   return t;
 }
 function textoPlan(f) {
@@ -433,9 +494,13 @@ function ficha() {
   h.append('button').attr('type', 'button').attr('class', 'no-print').text('Quitar selección').on('click', () => { sel = null; P.forEach(seleccion); ficha(); });
   const izq = F.append('div'), der = F.append('div').attr('class', 'notas');
   const tb = izq.append('table');
-  const ex = VARS[vars[0]].capa === 'g' && sp.filtro === 'EXCLUIDA_SIN_POBLACION_RESIDENTE';
+  const ex = excluida(sel, vars[0]);
   P.forEach(p => { const v = VARS[p.v], tr = tb.append('tr'); tr.append('td').text((p.rotulo ? p.rotulo + ' · ' : '') + v.nom + (v.anual ? ` ${anio}` : '')); tr.append('td').text(ex ? '—' : fmt(valor(sel, p.v), v.u)); });
-  if (ex) der.append('p').text('Manzana sin población residente (menos de 10 personas en 2018 y ningún predio residencial en 2025): no entra al índice de gentrificabilidad.');
+  if (sp.uso25) { const tr = tb.append('tr'); tr.append('td').text('Uso predominante 2025 (catastro)'); tr.append('td').text(sp.uso25); }
+  if (ex) der.append('p').html(sp.filtro === 'EXCLUIDA_DOTACIONAL_O_ESPACIO_PUBLICO_SIN_VIVIENDA_2025'
+    ? `<b>Sin población residente:</b> manzana dotacional o de espacio público (${sp.uso25}) sin ningún predio residencial en 2025, aunque el censo de 2018 le cuente ${sp.personas18 || 0} personas. No entra al índice.`
+    : `<b>Sin población residente:</b> menos de 10 personas en 2018 y ningún predio residencial en 2025. No entra al índice.`);
+  if (fuera(sel)) der.append('p').attr('class', 'm').text('Unidad del índice de gentrificación por fuera de los siete sectores catastrales: proviene del recorte por el límite administrativo de la localidad.');
   if (sp.vref && vars.some(v => v === 'val' || v === 'var')) {
     const tr = tb.append('tr'); tr.append('td').text('Valor del suelo 2018 → 2025'); tr.append('td').text(`${fmt(sp.vref['2018'], '$')} → ${fmt(sp.vref['2025'], '$')}`);
     grafico(der, sp);
