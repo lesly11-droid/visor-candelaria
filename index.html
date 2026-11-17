@@ -479,7 +479,7 @@ function seleccion(p) {
 // textos al pasar el cursor
 function textoPunto(f, k, p) {
   const pr = f.properties, def = VARS[p.v];
-  let t = `<b>${PUNTOS[k][0]}</b>` + (pr.n ? `: ${pr.n}` : '') + (pr.anio ? ` · ${pr.anio}` : '') + (pr.t && k !== 'licencias' ? ` · ${pr.t}` : '');
+  let t = `<b>${PUNTOS[k][0]}</b>` + (pr.n ? `: ${pr.n}` : '') + (pr.anio ? ` · ${pr.anio}` : '') + (pr.t ? ` · ${pr.t}` : '');
   if (!sel) return t;
   const sp = sel.properties, recta = d3.geoDistance(d3.geoCentroid(sel), coord(f)) * 6371000;
   if (k === 'estaciones_tm') {
