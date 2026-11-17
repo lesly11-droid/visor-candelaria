@@ -143,12 +143,12 @@ const coord = f => f.geometry.type === 'Point' ? f.geometry.coordinates : d3.geo
 // Variables: capa (v1 = 203 unidades de la Parte 1; g = 418 manzanas de la Parte 2), campo, unidad, sentido (-1: menos = más oscuro)
 const VARS = {
   val:   {capa: 'v1', nom: 'Valor del suelo', u: '$', anual: true, d: 'Valor de referencia del suelo por m² (UAECD) en el año elegido. Mueva el año para ver cómo cambió entre 2017 y 2025.'},
-  var:   {capa: 'v1', campo: 'var', nom: 'Aumento del valor 2018–2025', u: '%', d: 'Cambio porcentual del valor de referencia del suelo entre 2018 y 2025: qué tan rápido se revalorizó la manzana.'},
+  var:   {capa: 'v1', campo: 'var', nom: 'Aumento del valor 2018–2025', u: '%', d: 'Cambio porcentual del valor de referencia del suelo entre 2018 y 2025, en pesos corrientes: qué tan rápido se revalorizó la manzana. Descontar la inflación (IPC dic-2018 a dic-2025 ≈ 52 %) resta lo mismo a todas las manzanas y no cambia su orden ni su puntaje; la ficha muestra también el aumento real.'},
   p2039: {capa: 'v1', campo: 'p2039', nom: 'Jóvenes de 20 a 39 años', u: '%', d: '% de residentes de 20 a 39 años (Censo 2018).'},
   p60:   {capa: 'v1', campo: 'p60', nom: 'Mayores de 60 años', u: '%', d: '% de residentes de 60 años o más (Censo 2018). Más proporción se lee como permanencia de la población tradicional.'},
   psup:  {capa: 'v1', campo: 'psup', nom: 'Con educación superior', u: '%', d: '% de residentes con educación técnica, tecnológica, universitaria o de posgrado (Censo 2018).'},
   tm1:   {capa: 'v1', campo: 'tm_cam', alt: 'tm_recta', nom: 'Cercanía a TransMilenio', u: 'm', s: -1, pts: 'estaciones_tm', d: 'Distancia caminando por las calles hasta la estación de TransMilenio más cercana (OSRM peatonal).'},
-  otros: {capa: 'v1', campo: 'otros', nom: 'Vivienda convertida en otros usos', u: '%', d: '% de predios que eran vivienda en 2018 y en 2025 figuran como comercio, servicios o uso educativo. Al pasar el cursor o elegir la manzana se indica su uso predominante en 2025.'},
+  otros: {capa: 'v1', campo: 'otros', nom: 'Vivienda convertida en otros usos', u: '%', d: '% de predios que eran vivienda en 2018 y en 2025 figuran como comercio, servicios o uso educativo. Al pasar el cursor o elegir la manzana se muestra cómo se reparten hoy sus predios por destino catastral (residencial, comercio, dotacional…), que es a donde ha ido a parar la vivienda convertida.'},
   tur:   {capa: 'v1', campo: 'tur', nom: 'Oferta turística en la manzana', u: 'por ha', pts: 'turismo', d: 'Vivienda turística y alojamientos por hectárea dentro de la propia manzana.'},
   trat:  {capa: 'v1', campo: 'trat', nom: 'Norma (tratamiento urbanístico)', u: '', d: 'Qué tanto permite transformar la norma del POT: 0 = conservación, 1 = renovación urbana.'},
   lic:   {capa: 'v1', campo: 'lic', nom: 'Licencias urbanísticas 2018–2025', u: 'por ha', pts: 'licencias', d: 'Licencias aprobadas entre 2018 y 2025 por hectárea de manzana. Cada punto es una licencia.'},
@@ -167,8 +167,9 @@ const DIMS = {
   ECO: ['Económica', ['val', 'var']], SOC: ['Sociodemográfica', ['p2039', 'p60', 'psup']], FUN: ['Funcional', ['tm1', 'otros', 'tur']], FIS: ['Físico-urbana', ['trat', 'lic', 'bic']],
   INC: ['Incentivo económico', ['A1', 'A2']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']], ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
 };
+const IPC_18_25 = 1.523; // IPC acumulado dic-2018 → dic-2025 (DANE)
 const PARTES = {
-  V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria; en gris, sin población residente en 2018 (153 entran al índice)', capa: 'v1',
+  V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria; en gris, sin población residente en 2018 (144 entran al índice)', capa: 'v1',
        q: '¿Cuál de los dos pesa más como <b>evidencia de que la gentrificación avanzó</b> en la manzana entre 2018 y 2025, y cuánto más?'},
   G:  {chip: 'PARTE 2', nom: 'Índice de gentrificabilidad', ambito: '¿Qué condiciones actuales favorecen un mayor avance (2025–2026)? · 418 manzanas de La Candelaria y 6 sectores vecinos; en gris, sin población residente (322 entran al índice)', capa: 'g',
        q: '¿Cuál de los dos pesa más como <b>condición que podría favorecer un mayor avance</b> de la gentrificación (2025–2026), y cuánto más?'},
@@ -299,6 +300,19 @@ function encuadrar(inicial) {
 const valor = (f, v) => { const p = f.properties, def = VARS[v]; if (def.anual) return p.vref ? (p.vref[String(anio)] ?? null) : null;
   let x = p[def.campo]; if ((x == null || x === '') && def.alt) x = p[def.alt]; return x == null || x === '' ? null : +x; };
 const excluida = (f, v) => (f.properties.filtro || '').startsWith('EXCLUIDA');
+// viviendas de 2018 que en 2025 tienen otro destino catastral, por destino de llegada (tabla de predios por CHIP de Danny, G4)
+function convertidas(pr) {
+  if (!pr.res18) return 'Sin predios residenciales en 2018';
+  if (!pr.conv18) return `Ninguna de sus ${pr.res18} viviendas de 2018 cambió de destino`;
+  const a = Object.entries(pr.conv_a || {}).sort((x, y) => y[1] - x[1]).map(([k, n]) => `${n} a ${k.toLowerCase()}`).join(', ');
+  return `${pr.conv18} de ${pr.res18} viviendas de 2018 cambiaron de destino: ${a}`;
+}
+// reparto de los predios de la manzana por destino catastral 2024 (UAECD), como «residencial 62 %, comercio 30 %, …»
+function destinos(d, max) {
+  const tot = Object.values(d).reduce((a, b) => a + b, 0); if (!tot) return '';
+  const ks = Object.keys(d).slice(0, max || 99);
+  return ks.map(k => `${k.toLowerCase()} ${Math.round(100 * d[k] / tot)} %`).join(', ') + (Object.keys(d).length > ks.length ? ', …' : '') + ` (${tot} predios)`;
+}
 const fuera = f => f.properties.sector === '';   // unidad del índice de gentrificación fuera de los 7 sectores catastrales
 const enSector = f => !sectorSel || f.properties.cod.startsWith(sectorSel);
 
@@ -382,8 +396,9 @@ function pintar(p) {
 function textoManzana(f, p) {
   const pr = f.properties, def = VARS[p.v];
   let t = `<b>${pr.sector || 'Fuera de los 7 sectores catastrales'}</b> · manzana ${pr.cod}<br>${def.nom}: ${excluida(f, p.v) ? 'sin población residente (fuera del índice)' : fmt(valor(f, p.v), def.u)}`;
-  if (p.v === 'otros' && pr.uso25) t += `<br>Uso predominante 2025: ${pr.uso25}`;
-  if (excluida(f, p.v) && pr.uso25) t += `<br>Uso predominante 2025: ${pr.uso25}`;
+  if (p.v === 'otros' && pr.res18 != null) t += `<br>${convertidas(pr)}`;
+  else if (p.v === 'otros' && pr.uso25) t += `<br>Uso predominante 2025: ${pr.uso25}`;
+  if (excluida(f, p.v) && pr.uso25 && p.v !== 'otros') t += `<br>Uso predominante 2025: ${pr.uso25}`;
   if (pr.C5_dentro && (def.planes || ['atr', 'p2dim', 'inc'].includes(grupo.id))) t += `<br>Dentro de: <b>${pr.C5_dentro}</b> (distancia 0)`;
   return t;
 }
@@ -497,19 +512,33 @@ function ficha() {
   const ex = excluida(sel, vars[0]);
   P.forEach(p => { const v = VARS[p.v], tr = tb.append('tr'); tr.append('td').text((p.rotulo ? p.rotulo + ' · ' : '') + v.nom + (v.anual ? ` ${anio}` : '')); tr.append('td').text(ex ? '—' : fmt(valor(sel, p.v), v.u)); });
   if (sp.uso25) { const tr = tb.append('tr'); tr.append('td').text('Uso predominante 2025 (catastro)'); tr.append('td').text(sp.uso25); }
+  if (vars.includes('otros')) {
+    if (sp.res18 != null) { const tr = tb.append('tr'); tr.append('td').text('Viviendas 2018 → otro destino en 2025'); tr.append('td').text(convertidas(sp)); }
+    if (sp.dest24) { const tr = tb.append('tr'); tr.append('td').text('Predios hoy por destino catastral (2024)'); tr.append('td').text(destinos(sp.dest24)); }
+    der.append('p').html(`<b>Vivienda convertida:</b> el mapa muestra el porcentaje de la variable del índice (${sp.otros == null ? 'sin dato' : fmt(sp.otros, '%')}). El conteo por destino viene de la tabla de predios 2018–2025 enlazada por CHIP, con un registro por predio; por eso puede no coincidir exactamente con el porcentaje, que se calculó antes contando filas del catastro 2018 (corrección pendiente de decisión de los autores). Destinos según el catálogo de la UAECD: 06 es <i>dotacional privado</i> (no hay destino «educativo»).`);
+  }
   // el criterio es el mismo en los dos índices, fechado en el momento que cada uno mide: 2018 (inicio del periodo) en el índice de
   // gentrificación y 2025 (situación actual) en el de gentrificabilidad; las manzanas institucionales o de espacio público son
   // «no aplica», no un dato faltante, y siguen actuando como contexto (universidades, BIC, planes) sobre sus vecinas
   if (ex) der.append('p').html(sp.filtro === 'EXCLUIDA_DOTACIONAL_O_ESPACIO_PUBLICO_SIN_VIVIENDA_2025'
     ? `<b>Sin población residente:</b> manzana dotacional o de espacio público (${sp.uso25}) sin ningún predio residencial en 2025, aunque el censo de 2018 le cuente ${sp.personas18 || 0} personas. No entra al índice.`
     : sp.filtro === 'EXCLUIDA_DOTACIONAL_O_ESPACIO_PUBLICO_SIN_VIVIENDA'
-    ? `<b>Sin población residente en 2018:</b> manzana dotacional o de espacio público (${sp.uso25}) sin señal de vivienda al inicio del periodo (ningún predio pasó de vivienda a otro uso y no conserva predios residenciales), aunque el censo le cuente ${sp.personas18 || 0} personas. No entra al índice: aquí no hubo residentes que reemplazar.`
+    ? `<b>Sin población residente en 2018:</b> ${sp.pred18 ? `en el catastro de 2018 sus ${sp.pred18} predios tenían destino ${{dotacional: 'dotacional', recreacional: 'recreacional', lotes_vias_ep: 'de lote, vía o espacio público'}[sp.dom18] || sp.dom18} y ninguno residencial` : 'manzana dotacional o de espacio público sin vivienda al inicio del periodo'}, aunque el censo le cuente ${sp.personas18 || 0} personas. No entra al índice: aquí no hubo residentes que reemplazar.`
     : sel.properties.vref
-    ? `<b>Sin población residente en 2018:</b> menos de 10 personas en el censo y sin señal de vivienda al inicio del periodo. No entra al índice.`
+    ? `<b>Sin población residente en 2018:</b> menos de 10 personas en el censo${sp.pred18 ? ' y ningún predio residencial en el catastro de 2018' : ' y sin predios enlazados en el catastro de 2018'}. No entra al índice.`
     : `<b>Sin población residente:</b> menos de 10 personas en 2018 y ningún predio residencial en 2025. No entra al índice.`);
   if (fuera(sel)) der.append('p').attr('class', 'm').text('Unidad del índice de gentrificación por fuera de los siete sectores catastrales: proviene del recorte por el límite administrativo de la localidad.');
   if (sp.vref && vars.some(v => v === 'val' || v === 'var')) {
     const tr = tb.append('tr'); tr.append('td').text('Valor del suelo 2018 → 2025'); tr.append('td').text(`${fmt(sp.vref['2018'], '$')} → ${fmt(sp.vref['2025'], '$')}`);
+    // aumento real: el índice usa pesos corrientes (misma deflactación para todas las manzanas, el orden no cambia);
+    // IPC acumulado dic-2018 a dic-2025 según DANE: 3,80 · 1,61 · 5,62 · 13,12 · 9,28 · 5,20 · 5,10 % → factor 1,523
+    if (sp.vref['2018'] && sp.vref['2025']) {
+      const real = 100 * (sp.vref['2025'] / sp.vref['2018'] / IPC_18_25 - 1);
+      const tr2 = tb.append('tr'); tr2.append('td').text('Aumento real 2018–2025 (descontado el IPC, ≈ 52 %)'); tr2.append('td').text(fmt(real, '%'));
+    }
+    // valor de referencia anómalo: caída a menos de la mitad entre 2022 y 2025 y rebote en 2026 (p. ej. 003110004: $3 M → $193 mil → $3,6 M)
+    if (sp.vref['2022'] && sp.vref['2025'] && sp.vref['2025'] < 0.5 * sp.vref['2022'])
+      der.append('p').html(`<b>Valor de referencia por revisar:</b> cae de ${fmt(sp.vref['2022'], '$')} en 2022 a ${fmt(sp.vref['2025'], '$')} en 2025${sp.vref['2026'] ? ` y vuelve a ${fmt(sp.vref['2026'], '$')} en 2026` : ''}. Parece un error de la serie de la UAECD; se usa tal como está publicado y se anota para verificación.`);
     grafico(der, sp);
   }
   const c = d3.geoCentroid(sel);
