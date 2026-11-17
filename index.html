@@ -168,7 +168,7 @@ const DIMS = {
   INC: ['Incentivo económico', ['A1', 'A2']], VUL: ['Vulnerabilidad', ['B1', 'B2', 'B3']], ATR: ['Atractivo del entorno', ['C1', 'C2', 'C4', 'C5']],
 };
 const PARTES = {
-  V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria; en gris, sin población residente', capa: 'v1',
+  V1: {chip: 'PARTE 1', nom: 'Índice de gentrificación', ambito: '¿Cuánto avanzó la gentrificación entre 2018 y 2025? · 203 manzanas de La Candelaria; en gris, sin población residente en 2018 (153 entran al índice)', capa: 'v1',
        q: '¿Cuál de los dos pesa más como <b>evidencia de que la gentrificación avanzó</b> en la manzana entre 2018 y 2025, y cuánto más?'},
   G:  {chip: 'PARTE 2', nom: 'Índice de gentrificabilidad', ambito: '¿Qué condiciones actuales favorecen un mayor avance (2025–2026)? · 418 manzanas de La Candelaria y 6 sectores vecinos; en gris, sin población residente (322 entran al índice)', capa: 'g',
        q: '¿Cuál de los dos pesa más como <b>condición que podría favorecer un mayor avance</b> de la gentrificación (2025–2026), y cuánto más?'},
@@ -497,8 +497,15 @@ function ficha() {
   const ex = excluida(sel, vars[0]);
   P.forEach(p => { const v = VARS[p.v], tr = tb.append('tr'); tr.append('td').text((p.rotulo ? p.rotulo + ' · ' : '') + v.nom + (v.anual ? ` ${anio}` : '')); tr.append('td').text(ex ? '—' : fmt(valor(sel, p.v), v.u)); });
   if (sp.uso25) { const tr = tb.append('tr'); tr.append('td').text('Uso predominante 2025 (catastro)'); tr.append('td').text(sp.uso25); }
+  // el criterio es el mismo en los dos índices, fechado en el momento que cada uno mide: 2018 (inicio del periodo) en el índice de
+  // gentrificación y 2025 (situación actual) en el de gentrificabilidad; las manzanas institucionales o de espacio público son
+  // «no aplica», no un dato faltante, y siguen actuando como contexto (universidades, BIC, planes) sobre sus vecinas
   if (ex) der.append('p').html(sp.filtro === 'EXCLUIDA_DOTACIONAL_O_ESPACIO_PUBLICO_SIN_VIVIENDA_2025'
     ? `<b>Sin población residente:</b> manzana dotacional o de espacio público (${sp.uso25}) sin ningún predio residencial en 2025, aunque el censo de 2018 le cuente ${sp.personas18 || 0} personas. No entra al índice.`
+    : sp.filtro === 'EXCLUIDA_DOTACIONAL_O_ESPACIO_PUBLICO_SIN_VIVIENDA'
+    ? `<b>Sin población residente en 2018:</b> manzana dotacional o de espacio público (${sp.uso25}) sin señal de vivienda al inicio del periodo (ningún predio pasó de vivienda a otro uso y no conserva predios residenciales), aunque el censo le cuente ${sp.personas18 || 0} personas. No entra al índice: aquí no hubo residentes que reemplazar.`
+    : sel.properties.vref
+    ? `<b>Sin población residente en 2018:</b> menos de 10 personas en el censo y sin señal de vivienda al inicio del periodo. No entra al índice.`
     : `<b>Sin población residente:</b> menos de 10 personas en 2018 y ningún predio residencial en 2025. No entra al índice.`);
   if (fuera(sel)) der.append('p').attr('class', 'm').text('Unidad del índice de gentrificación por fuera de los siete sectores catastrales: proviene del recorte por el límite administrativo de la localidad.');
   if (sp.vref && vars.some(v => v === 'val' || v === 'var')) {
